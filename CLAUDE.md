@@ -33,6 +33,8 @@ Game mechanics are free to reuse. The expression of the original game is not.
 - Third-party assets or libraries need a license compatible with free public hosting
   (MIT, BSD, Apache-2.0, CC0, CC-BY or OFL for fonts). Record each one in
   `THIRD_PARTY.md` with its source and license.
+- The project is licensed GPL-3.0-only (see `LICENSE`). New source files start with the
+  header `// SPDX-License-Identifier: GPL-3.0-only` (in the comment syntax of the file type).
 
 ## Tech stack
 
