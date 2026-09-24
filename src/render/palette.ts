@@ -81,3 +81,15 @@ export const SPRITE_OUTLINE = '#10213a';
 
 export const WAKE_COLOR = '#cfe6ea';
 export const PENNANT_COLOR = '#b3261e';
+
+/** Compass colours (spec §9.1). Brass matches the --brass UI token. */
+export const COMPASS_COLORS = {
+  face: 'rgba(9, 22, 40, 0.9)',
+  ring: '#c9a24a',
+  tick: '#c9a24a',
+  north: '#eadcb4',
+  noGo: 'rgba(200, 48, 36, 0.5)',
+  wind: '#a8d4ef',
+  needle: '#e3c26a',
+  hub: '#2a1d12',
+} as const;

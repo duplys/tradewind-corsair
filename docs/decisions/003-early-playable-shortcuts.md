@@ -15,7 +15,7 @@ usable.
 - **Start position:** `sim/sailing/start.ts` derives Bridgetown's harbour directly from
   `START_LON/START_LAT` with the §4.1 searches (`sim/world/search.ts`). In M5 it should read
   the port table instead. The search helpers themselves are the M5 ones.
-- **Dev readout:** in dev builds only, a small panel (`ui/devReadout.ts`) shows course,
+- **Dev readout** (removed in M4; the HUD and message line replaced it): in dev builds only, a small panel (`ui/devReadout.ts`) shows course,
   speed, point of sail, wind, sail and voyage day. It also shows "Breakers ahead!" at most
   once per 3 s. The M4 HUD and message line replace it.
 - **No shoal event when not moving:** `stepShip` only checks collision when the ship would

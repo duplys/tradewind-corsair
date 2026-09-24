@@ -31,6 +31,18 @@ Other scripts:
 | `npm run format`     | Prettier                                          |
 | `npm run check`      | Lint, type-check and test (run before committing) |
 
+## Controls
+
+| Action            | Keyboard      | Touch (phones and tablets) |
+| ----------------- | ------------- | -------------------------- |
+| Turn to port      | ← or A (hold) | ◀ (hold)                   |
+| Turn to starboard | → or D (hold) | ▶ (hold)                   |
+| Hoist (more sail) | ↑ or W        | Hoist                      |
+| Reef (less sail)  | ↓ or S        | Reef                       |
+
+Sail across the wind for the best speed. The red wedge on the compass marks the wind's
+eye, where the ship stops.
+
 ## Project layout
 
 - `src/sim/`: pure, deterministic simulation (no DOM, no wall clock, seeded randomness)

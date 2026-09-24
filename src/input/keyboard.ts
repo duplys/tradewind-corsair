@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
-import { createHeldActions, type Action, type HeldActions } from './actions';
+import type { Action } from './actions';
+import type { Input } from './input';
 
 /** Key bindings (slice 1 spec §9.5). WASD match by physical position, M and Esc by key. */
 function actionForKey(e: KeyboardEvent): Action | null {
@@ -31,10 +32,13 @@ function isActivatingControl(target: EventTarget | null, action: Action): boolea
   return action === 'confirm' && target instanceof HTMLButtonElement;
 }
 
-/** Keyboard → held actions plus a queue of one-shot presses (auto-repeat ignored). */
+/** Keyboard → held actions plus one-shot presses (auto-repeat ignored), written into Input. */
 export class KeyboardInput {
-  readonly held: HeldActions = createHeldActions();
-  private readonly queue: Action[] = [];
+  private readonly held;
+
+  constructor(private readonly input: Input) {
+    this.held = input.source('keyboard');
+  }
 
   private readonly onKeyDown = (e: KeyboardEvent): void => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -42,7 +46,7 @@ export class KeyboardInput {
     if (!action || isActivatingControl(e.target, action)) return;
     e.preventDefault();
     this.held[action] = true;
-    if (!e.repeat) this.queue.push(action);
+    if (!e.repeat) this.input.press(action);
   };
 
   private readonly onKeyUp = (e: KeyboardEvent): void => {
@@ -63,13 +67,8 @@ export class KeyboardInput {
     document.addEventListener('visibilitychange', this.onVisibility);
   }
 
-  /** Next queued one-shot action, or undefined when the queue is empty. */
-  poll(): Action | undefined {
-    return this.queue.shift();
-  }
-
   clear(): void {
-    for (const key of Object.keys(this.held) as Action[]) this.held[key] = false;
-    this.queue.length = 0;
+    this.input.clearSource('keyboard');
+    this.input.clearQueue();
   }
 }
