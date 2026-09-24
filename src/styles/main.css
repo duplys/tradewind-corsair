@@ -1,0 +1,40 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
+
+:root {
+  /* Palette tokens (slice 1 spec §9). A single dark look; the OS theme is not followed. */
+  --deep-sea: #0b1a2e;
+  --panel: rgba(9, 22, 40, 0.85);
+  --brass: #c9a24a;
+  --parchment: #eadcb4;
+  --parchment-shade: #d9c795;
+  --ink: #2a1d12;
+
+  /* Fonts (Google Fonts, OFL-1.1) with system fallbacks. */
+  --font-period: 'IM Fell English', 'Iowan Old Style', Georgia, 'Times New Roman', serif;
+  --font-period-sc: 'IM Fell English SC', 'IM Fell English', Georgia, 'Times New Roman', serif;
+  --font-numerals: 'VT323', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--deep-sea);
+  color: var(--parchment);
+  font-family: var(--font-period);
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+canvas.view {
+  display: block;
+  width: 100%;
+  height: 100%;
+}

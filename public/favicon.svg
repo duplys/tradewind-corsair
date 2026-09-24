@@ -1,0 +1,18 @@
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" shape-rendering="crispEdges">
+  <rect width="16" height="16" fill="#0b1a2e"/>
+  <!-- mast and pennant -->
+  <rect x="7" y="1" width="1" height="11" fill="#5a3a1e"/>
+  <rect x="8" y="1" width="2" height="1" fill="#b3261e"/>
+  <!-- billowed square sail -->
+  <rect x="3" y="3" width="9" height="1" fill="#cfc3a0"/>
+  <rect x="3" y="4" width="10" height="4" fill="#f2ead2"/>
+  <rect x="4" y="8" width="8" height="1" fill="#cfc3a0"/>
+  <rect x="7" y="4" width="1" height="4" fill="#cfc3a0"/>
+  <!-- hull -->
+  <rect x="2" y="11" width="12" height="1" fill="#8a5a2c"/>
+  <rect x="3" y="12" width="10" height="1" fill="#5a3a1e"/>
+  <!-- water -->
+  <rect x="1" y="14" width="3" height="1" fill="#4aa3a8"/>
+  <rect x="9" y="14" width="4" height="1" fill="#4aa3a8"/>
+</svg>

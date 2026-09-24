@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx vitest *)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(npx prettier *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git branch*)",
+      "Bash(git checkout *)",
+      "Edit(./**)",
+      "Write(./**)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(rsync *)",
+      "Bash(ssh *)",
+      "Bash(scp *)",
+      "Bash(deploy/deploy.sh*)",
+      "Bash(./deploy/deploy.sh*)",
+      "Bash(bash deploy/deploy.sh*)",
+      "Bash(sh deploy/deploy.sh*)",
+      "Bash(DEPLOY_TARGET=*)"
+    ]
+  }
+}
