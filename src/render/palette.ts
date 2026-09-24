@@ -68,3 +68,16 @@ export function hexToRgb(hex: string): readonly [number, number, number] {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
+
+/** Ship sprite colours (spec §8.4). Every sprite pixel is quantised to one of these. */
+export const SHIP_COLORS = {
+  hull: '#5a3a1e',
+  deck: '#8a5a2c',
+  sail: '#f2ead2',
+  sailShade: '#cfc3a0',
+  mast: '#2b1a0e',
+} as const;
+export const SPRITE_OUTLINE = '#10213a';
+
+export const WAKE_COLOR = '#cfe6ea';
+export const PENNANT_COLOR = '#b3261e';

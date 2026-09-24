@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { KeyboardInput } from '../input/keyboard';
+import { createShipSprites } from '../render/sprites/ship';
 import { View } from '../render/view';
 import type { World } from '../sim/world/world';
+import { DevReadout } from '../ui/devReadout';
 import { createLoop, type Loop } from './loop';
 import { ModeMachine } from './modeMachine';
 import { SailingMode } from './modes/sailing';
@@ -11,6 +13,7 @@ import { TitleMode } from './modes/title';
 export class Game {
   private readonly view = new View();
   private readonly keyboard = new KeyboardInput();
+  private readonly readout = import.meta.env.DEV ? new DevReadout() : null;
   private readonly modes: ModeMachine;
   private readonly loop: Loop;
   private readonly onResize = (): void => this.resize();
@@ -18,7 +21,13 @@ export class Game {
   constructor(world: World, map: HTMLCanvasElement) {
     this.modes = new ModeMachine([
       new TitleMode(),
-      new SailingMode({ world, map, held: this.keyboard.held }),
+      new SailingMode({
+        world,
+        map,
+        sprites: createShipSprites(),
+        held: this.keyboard.held,
+        readout: this.readout,
+      }),
     ]);
     this.loop = createLoop({
       step: (dtSec) => this.step(dtSec),
@@ -28,6 +37,7 @@ export class Game {
 
   attach(root: HTMLElement): void {
     root.append(this.view.canvas);
+    this.readout?.attach(root);
     this.resize();
     this.keyboard.attach();
     window.addEventListener('resize', this.onResize);
