@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: GPL-3.0-only
+import type { Port } from '../sim/world/ports';
+import type { CameraOffset } from './camera';
+import { LABEL_FILL, LABEL_STROKE } from './palette';
+
+/** Labels sit this many world px above the town. */
+const LABEL_OFFSET_PX = 7;
+const STROKE_CSS_PX = 3;
+
+/**
+ * Port names drawn at native resolution on a canvas stacked above the pixel view (slice 1 spec
+ * §8.3 step 6). Redrawn only when the camera or scale changes.
+ */
+export class LabelLayer {
+  readonly canvas = document.createElement('canvas');
+  private readonly ctx: CanvasRenderingContext2D;
+  private dpr = 1;
+  private lastKey = '';
+
+  constructor() {
+    this.canvas.className = 'labels';
+    const ctx = this.canvas.getContext('2d');
+    if (!ctx) throw new Error('Canvas 2D context is not available');
+    this.ctx = ctx;
+  }
+
+  resize(cssW: number, cssH: number, dpr: number): void {
+    this.dpr = dpr;
+    this.canvas.width = Math.round(cssW * dpr);
+    this.canvas.height = Math.round(cssH * dpr);
+    this.canvas.style.width = `${cssW}px`;
+    this.canvas.style.height = `${cssH}px`;
+    this.lastKey = '';
+  }
+
+  clear(): void {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.lastKey = '';
+  }
+
+  draw(cam: CameraOffset, scale: number, ports: readonly Port[]): void {
+    const key = `${cam.x},${cam.y},${scale}`;
+    if (key === this.lastKey) return;
+    this.lastKey = key;
+
+    const { ctx, dpr } = this;
+    const k = scale * dpr;
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    ctx.font = `${(13 + 2 * scale) * dpr}px 'IM Fell English SC', Georgia, serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = STROKE_CSS_PX * dpr;
+    ctx.strokeStyle = LABEL_STROKE;
+    ctx.fillStyle = LABEL_FILL;
+    const margin = 200 * dpr;
+    for (const port of ports) {
+      const x = (port.town.x - cam.x) * k;
+      const y = (port.town.y - LABEL_OFFSET_PX - cam.y) * k;
+      if (
+        x < -margin ||
+        y < 0 ||
+        x > this.canvas.width + margin ||
+        y > this.canvas.height + margin
+      ) {
+        continue;
+      }
+      ctx.strokeText(port.def.name, x, y);
+      ctx.fillText(port.def.name, x, y);
+    }
+  }
+}

@@ -40,6 +40,16 @@ export const STRINGS = {
     wind: (point: string, knots: number) => `Wind ${point} ${knots} kn`,
     compassLabel: 'Compass: heading and wind',
   },
+  port: {
+    dropAnchor: (portName: string) => `Drop anchor at ${portName}`,
+    governor: 'Governor',
+    tavern: 'Tavern',
+    merchant: 'Merchant',
+    shipwright: 'Shipwright',
+    comingSoon: 'Coming soon',
+    setSail: 'Set sail',
+    flagOf: (nationName: string) => `Flag of ${nationName}`,
+  },
   touch: {
     port: '◀',
     portLabel: 'Turn to port',

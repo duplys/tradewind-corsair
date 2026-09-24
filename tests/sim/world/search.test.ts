@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { describe, expect, it } from 'vitest';
 import { angleDiff } from '../../../src/sim/math';
-import { createStartShip } from '../../../src/sim/sailing/start';
+import { departFrom } from '../../../src/sim/sailing/start';
 import { fillPolygon } from '../../../src/sim/world/rasterise';
 import { nearestHarbourWater, nearestLand, openWaterHeading } from '../../../src/sim/world/search';
-import { buildWorld, createWorld, distToLandAt, isLand } from '../../../src/sim/world/world';
+import { createWorld } from '../../../src/sim/world/world';
 
 function blockWorld() {
   const w = 100;
@@ -41,18 +41,11 @@ describe('search', () => {
   });
 });
 
-describe('createStartShip', () => {
-  it('starts off Bridgetown in clear water, facing open water, sail full, stopped', () => {
-    const world = buildWorld();
-    const s = createStartShip(world);
-    expect(isLand(world, s.x, s.y)).toBe(false);
-    expect(distToLandAt(world, s.x, s.y)).toBeGreaterThanOrEqual(3);
-    const ahead = distToLandAt(
-      world,
-      s.x + Math.cos(s.headingRad) * 20,
-      s.y + Math.sin(s.headingRad) * 20,
-    );
-    expect(ahead).toBeGreaterThan(distToLandAt(world, s.x, s.y));
-    expect(s).toMatchObject({ sail: 'full', speedKn: 0, classId: 'sloop' });
+describe('departFrom', () => {
+  it('leaves the harbour facing open water, sail full, stopped', () => {
+    const world = blockWorld();
+    const s = departFrom(world, { x: 50.5, y: 50.5 }, 'sloop');
+    expect(s).toMatchObject({ x: 50.5, y: 50.5, sail: 'full', speedKn: 0, classId: 'sloop' });
+    expect(Math.abs(angleDiff(s.headingRad, Math.PI))).toBeLessThan(Math.PI / 2);
   });
 });

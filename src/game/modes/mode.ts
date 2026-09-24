@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import type { Action } from '../../input/actions';
 
-/** Every mode the game can be in. Grows with each slice (port, chart, ...). */
-export type ModeId = 'title' | 'sailing';
+/** Every mode the game can be in. Grows with each slice (chart, combat, ...). */
+export type ModeId = 'title' | 'sailing' | 'port';
 
 /** A mode owns its update, render and overlay lifecycle. A mode that does not step is paused. */
 export interface Mode {
@@ -14,3 +14,6 @@ export interface Mode {
   update(dtSec: number): void;
   render(ctx: CanvasRenderingContext2D): void;
 }
+
+/** Lets a mode ask the game to switch to another mode. */
+export type SwitchMode = (id: ModeId) => void;

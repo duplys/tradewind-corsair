@@ -51,9 +51,8 @@ export const PORT_SEARCH_MAX_RADIUS_PX = 40;
 export const OPEN_WATER_DIRECTIONS = 32;
 export const OPEN_WATER_PROBE_PX = 20;
 
-/** New voyages start at Bridgetown, Barbados (spec §10). */
-export const START_LON = -59.62;
-export const START_LAT = 13.1;
+/** A ship is near a port (and may drop anchor) within this distance of its harbour. */
+export const DOCK_RADIUS_PX = 18;
 
 /** Half-width of the no-go wedge drawn on the compass around the upwind direction. */
 export const NO_GO_HALF_ANGLE_DEG = 35;

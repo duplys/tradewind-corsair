@@ -93,3 +93,17 @@ export const COMPASS_COLORS = {
   needle: '#e3c26a',
   hub: '#2a1d12',
 } as const;
+
+/** Towns stamped onto the map (spec §3.5). */
+export const TOWN_COLORS = {
+  fort: '#8c8a86',
+  gate: '#2e2a26',
+  roof: '#b04a2e',
+  wall: '#e8e0cc',
+} as const;
+
+export const FLAG_POLE = '#2b1a0e';
+
+/** Port labels on the native-resolution label canvas (spec §8.3 step 6). */
+export const LABEL_FILL = '#eadcb4';
+export const LABEL_STROKE = '#0b1a2e';

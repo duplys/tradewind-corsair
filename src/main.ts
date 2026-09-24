@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import './styles/main.css';
 import { FONT_WAIT_TIMEOUT_MS, MAP_SEED } from './data/constants';
+import { PORTS } from './data/ports';
 import { STRINGS } from './data/strings';
 import { Game } from './game/game';
 import { createMapCanvas } from './render/map/buildMap';
+import { derivePorts } from './sim/world/ports';
 import { buildWorld } from './sim/world/world';
 import { waitForFonts } from './ui/fonts';
 
@@ -26,8 +28,9 @@ async function boot(): Promise<void> {
   await nextPaint();
 
   const world = buildWorld();
-  const map = createMapCanvas(world, MAP_SEED);
-  const game = new Game(world, map);
+  const ports = derivePorts(world, PORTS);
+  const map = createMapCanvas(world, ports, MAP_SEED);
+  const game = new Game(world, map, ports);
   loading.remove();
   game.attach(root);
   game.start();

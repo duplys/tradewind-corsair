@@ -25,3 +25,13 @@ export function hash2(x: number, y: number, seed: number): number {
   h ^= h >>> 16;
   return (h >>> 0) / 4294967296;
 }
+
+/** FNV-1a hash of a string to an unsigned 32-bit integer (for per-id seeds). */
+export function hashString(text: string): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
+}
