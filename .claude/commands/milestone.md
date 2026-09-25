@@ -25,6 +25,8 @@ Implement one milestone. Arguments: `$ARGUMENTS`
    named in the spec. Do not change existing tests unless the milestone requires it; when
    you do, say why in the ADR.
 6. **Run** `npm run check` and fix what fails until it passes. Also run `npm run build`.
+   If `package.json` has a `test:balance` script and you changed combat code or ship or
+   combat data, run it too and keep it green.
 7. **Commit** with Conventional Commits (split into a few logical commits if that helps).
    Do not push.
 8. **Stop and summarise:**

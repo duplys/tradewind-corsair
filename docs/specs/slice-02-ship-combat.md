@@ -62,6 +62,22 @@ units and names from the slice 1 spec. Before starting:
    saved in v2), and so that it can derive independent child streams (for example
    `rng.fork('combat')`).
 
+**Outcome of M0** (details in `docs/decisions/008-slice-2-reconciliation.md`). Read the
+rest of this spec with these mappings:
+
+- The player's `name` and `condition` (§3.3) live on the `Voyage` as `shipName` and
+  `condition`, next to the kinematic `PlayerShip`, mirroring `NpcShip`. The player's crew
+  is `condition.crew`. The save file keeps the layout in §11.
+- `stepShip(ship, input, wind, terrain, dtSec, { performance, scale })` is the one physics
+  step. `terrain` is `null` in the combat arena. `ShipInput` is steering only: AI returns
+  steering plus a desired sail setting (and fire commands in combat), and the caller
+  applies the sail before stepping.
+- Keys: Enter and Space are both the `confirm` action, so in combat both fire the
+  broadside that bears. Esc is `close`, which pauses in combat. Q, E and P become new
+  actions.
+- `stepShip` returns a new ship object per step. §12's "no per-frame allocation" applies
+  to particles, balls and other pooled effects, not to ship state.
+
 ## 3. Ship classes
 
 ### 3.1 Data (`src/data/ships.ts`)
@@ -76,6 +92,7 @@ interface ShipClass {
   readonly masts: 1 | 2 | 3;
   readonly lengthPx: number;          // combat sprite hull length
   readonly beamPx: number;            // combat sprite hull width
+  readonly worldLengthPx: number;     // world-map sprite hull length (§4.5)
   readonly maxSpeedKn: number;
   readonly turnRateRadPerSec: number;
   readonly accelPerSec: number;
@@ -90,13 +107,18 @@ interface ShipClass {
 
 Starting values (tune in M6/M8; keep them all in this one table):
 
-| id         | name       | masts | len × beam | max kn | turn rad/s | hull | guns | crew max / typical | cargo |
-| ---------- | ---------- | ----- | ---------- | ------ | ---------- | ---- | ---- | ------------------ | ----- |
-| sloop      | Sloop      | 1     | 22 × 8     | 9.0    | 1.6        | 60   | 8    | 60 / 40            | 300   |
-| brigantine | Brigantine | 2     | 26 × 9     | 8.5    | 1.2        | 90   | 14   | 100 / 60           | 800   |
-| fluyt      | Fluyt      | 3     | 28 × 10    | 7.0    | 0.9        | 110  | 10   | 60 / 30            | 2500  |
-| frigate    | Frigate    | 3     | 32 × 11    | 8.0    | 1.0        | 160  | 28   | 220 / 150          | 1200  |
-| galleon    | Galleon    | 3     | 36 × 13    | 6.5    | 0.7        | 220  | 36   | 300 / 200          | 6000  |
+| id         | name       | masts | len × beam | world len | max kn | turn rad/s | accel /s | hull | guns | crew max / typical | cargo |
+| ---------- | ---------- | ----- | ---------- | --------- | ------ | ---------- | -------- | ---- | ---- | ------------------ | ----- |
+| sloop      | Sloop      | 1     | 22 × 8     | 16        | 9.0    | 1.6        | 0.70     | 60   | 8    | 60 / 40            | 300   |
+| brigantine | Brigantine | 2     | 26 × 9     | 18        | 8.5    | 1.2        | 0.60     | 90   | 14   | 100 / 60           | 800   |
+| fluyt      | Fluyt      | 3     | 28 × 10    | 20        | 7.0    | 0.9        | 0.45     | 110  | 10   | 60 / 30            | 2500  |
+| frigate    | Frigate    | 3     | 32 × 11    | 21        | 8.0    | 1.0        | 0.50     | 160  | 28   | 220 / 150          | 1200  |
+| galleon    | Galleon    | 3     | 36 × 13    | 23        | 6.5    | 0.7        | 0.35     | 220  | 36   | 300 / 200          | 6000  |
+
+`accel /s` is the fraction of the gap to the target speed closed per second, as in
+slice 1; the sloop keeps its slice 1 value. `world len` is the hull length of the
+world-map sprite (§4.5); the sloop keeps the slice 1 player sprite's 16 px, and every
+class fits the 26 × 26 px sprite canvas.
 
 Polars (`relDeg` is the angle between the heading and the wind's **toward** direction,
 as in slice 1):
@@ -145,6 +167,12 @@ visibly slower on the way home.
 become visible. The ledger panel now shows gold, crew/crewMax, hull % and rigging %.
 Show hull and rigging as small pixel bars with a numeric tooltip or `aria-label`.
 
+Crew is shown against two different numbers on purpose, so label them clearly. The ledger
+compares it with `crewMax` ("Crew 40 of 60 berths"): that is how many more hands the ship
+can take, which matters for recruits. The combat HUD (§10.3) compares it with
+`crewTypical` ("Crew 40, needs 40"): that is how many the ship needs to fight at full
+efficiency.
+
 ### 3.4 Repair in port
 
 Enable the **Shipwright** button in the port screen of any port that is not hostile to
@@ -157,8 +185,10 @@ the player (see §5.1). It opens a small panel:
 - Lost guns can be replaced at 60 gold each, up to the class maximum.
 - Replacing crew is *not* here (it will be the tavern in slice 4). Recruits in this
   slice come only from prizes.
-- Repairs add 2 game days to the clock per 25 % repaired (show this before
-  confirming).
+- Repairs add 2 game days to the clock per 25 percentage points repaired, counting hull
+  and rigging points together, pro rata, and rounded to the nearest game hour. For
+  example, +30 % hull and +20 % rigging is 50 points, which is 4 days. Replacing guns
+  takes no time. Show the time before confirming.
 
 ## 4. NPC ships on the world map
 
@@ -194,17 +224,25 @@ fresh.
   harbours by `(fromPortId, toPortId)`, and compute them lazily.
 - Smooth each path by removing waypoints that are in line of sight of each other
   (sample the segment every 3 px with `distToLand ≥ 3`).
-- Tests: every pair of ports in slice 1 Appendix B has a path (this also verifies the
-  straits are open). A path never crosses land. Smoothing never cuts a corner across
-  land.
+- **Harbours are not always on navigable cells.** A harbour only needs `distToLand ≥ 3`,
+  but a cell centre needs `≥ 5`. So snap each harbour to the nearest navigable cell
+  (breadth-first over cells, up to 6 cells away) whose centre is in line of sight of the
+  harbour (the same check as smoothing). Each path starts and ends with that straight leg
+  between the harbour and the cell. Tortuga, Maracaibo and St. Augustine are the likely
+  cases.
+- Tests: every pair of ports in slice 1 Appendix B has a path, including the snapped
+  harbour legs (this also verifies the straits are open). A path never crosses land.
+  Smoothing never cuts a corner across land.
 
 ### 4.3 Spawning and despawning (seeded, deterministic)
 
 - Keep a target of **6 NPC ships within 250 world px** of the player (the constant
   `NPC_TARGET_NEARBY`). Check every 2 game hours.
-- Spawn position: a random navigable cell 140–240 px from the player and outside the
-  current view. Prefer cells on a cached port-to-port path (70 %) so ships appear on
-  plausible sea lanes.
+- Spawn position: a random navigable cell 140–240 px from the player. Prefer cells on a
+  cached port-to-port path (70 %) so ships appear on plausible sea lanes.
+  - The sim does not know the screen size, so it does not try to spawn off-screen, which
+    would make the simulation depend on the device. Instead, the renderer fades new ships
+    in (§4.5).
 - **Nation:** weighted by the nations of the ports within 300 px (weight = 1 / distance),
   plus a flat 10 % chance of a pirate.
 - **Role and class**, by nation:
@@ -216,9 +254,13 @@ fresh.
 | pirate      | —                                      | —                                 | 0 / 0 / 100 (class: sloop 4, brigantine 3, frigate 1) |
 
   `*` The galleon is allowed only when the destination or origin is Havana, Veracruz,
-  Porto Bello or Cartagena.
-- Initial condition: hull and rigging 85–100 %, crew 80–110 % of typical (capped at
-  max), all guns intact. Traders carry 60 % of typical crew.
+  Porto Bello or Cartagena. An NPC spawned on a cached port-to-port path has that path's
+  start port as its origin. Otherwise its origin is the port whose harbour is nearest to
+  the spawn cell.
+- Initial condition: hull and rigging 85–100 %, all guns intact. Crew is a random share of
+  `crewTypical`, rounded down and capped at `crewMax`:
+  - warships and pirates: 80–110 %
+  - traders: 48–66 %, which is 60 % × (80–110 %), because merchantmen sail short-handed
 - Destination: a random port of the same nation (traders and warships), or a random
   port anywhere (pirates, who then loiter; see §4.4). Traders never go to a port
   hostile to their nation.
@@ -249,13 +291,20 @@ shared `stepShip`:
 ### 4.5 Rendering on the world map
 
 - Use the same procedural sprite approach as the player, generated per class at
-  **world scale** (hull length ≈ 10 + 2 × masts px), with sail colour by role: traders
-  cream `#e8dcc0`, warships white `#f6f2e6`, pirates weathered grey `#9a978e`.
+  **world scale** (hull length from `worldLengthPx`, §3.1: 16–23 px), with sail colour by
+  role: traders cream `#e8dcc0`, warships white `#f6f2e6`, pirates weathered grey
+  `#9a978e`.
+- **Rigs:** the sloop has one mast with a fore-and-aft sail, and the other classes have 2
+  or 3 masts with square sails, as in §10.1. This replaces slice 1's two-square-sail
+  sloop, so the player's own world sprite changes too (M2).
+- **Fading:** a newly spawned NPC fades in over 1.5 s, and a despawned one fades out over
+  1.5 s at its last position. This is purely presentation: the sim spawns and despawns
+  instantly.
 - A pennant pixel in the nation colour flies at the stern (pirates: black with one
   white pixel; an original emblem, not any historical flag).
 - Within 50 px of the player, show a native-resolution label under the ship in small
-  IM Fell: "Spanish fluyt" (for pirates, "Pirate brigantine"). Hostile ships have the
-  label tinted red (`#e0786a`).
+  IM Fell: "Spanish fluyt" (for pirates, "Pirate brigantine"), using the nation's
+  `adjective` (§5.1). Hostile ships have the label tinted red (`#e0786a`).
 - The chart overlay also shows NPCs within 250 px as small dots in their nation's
   colour, without names.
 
@@ -263,8 +312,18 @@ shared `stepShip`:
 
 ### 5.1 Relations (static in this slice)
 
-`src/data/relations.ts` holds a simple matrix, `atWar(a, b): boolean`. In 1660 the
-player sails under an **English letter of marque**:
+`src/data/relations.ts` holds a simple matrix, `atWar(a, b): boolean`.
+
+`src/data/nations.ts` gains two display fields:
+- `adjective`: Spanish, English, French, Dutch (pirates use "Pirate"), for labels and
+  dialogs ("Spanish fluyt").
+- `sentenceName`: Spain, England, France, the Dutch Republic, for sentences ("Spain is at
+  peace with the Dutch Republic").
+
+The existing `name` (shown next to the flag on the port screen) changes from "Dutch" to
+"Dutch Republic".
+
+In 1660 the player sails under an **English letter of marque**:
 
 - Spain is at war with England and France, and at peace with the Dutch.
 - England, France and the Dutch are at peace with each other.
@@ -301,16 +360,26 @@ fly the colours of a friendly nation. Attack anyway?" before the fight.
 It shows the ship's name, class, nation flag and role in period phrasing ("the Spanish
 merchantman *San Telmo*, fluyt, 10 guns"), a rough strength estimate ("She looks
 heavily crewed" when her crew is more than 1.5 × yours, "She looks undermanned" when
-it is less than 0.6 ×), and the relation line ("Spain is at war with England").
+it is less than 0.6 ×), and the relation line, built from `sentenceName` ("Spain is at
+war with England").
 
 Buttons:
 
 - Player-initiated: **Attack** and **Leave her be** (Leave sets the NPC's
   `ignorePlayerUntilHours` to now + 12 h if it is not hostile).
 - NPC-initiated: **Stand and fight** and **Try to run**.
-  - Escape chance = `clamp(0.5 + (vPlayer − vEnemy) / 6, 0.1, 0.9)`, where `v` is each
-    ship's current achievable speed on the world map at its current heading (use the
-    player's best heading relative to the wind, to reward good positioning).
+  - Escape chance = `clamp(0.5 + (vPlayer − vEnemy) / 6, 0.1, 0.9)`. Both speeds are
+    **speeds made good** from steady-state world-map speeds: the target speed from each
+    ship's polar and condition, the current wind and full sail, not their current speed.
+    Sample headings every 5°.
+    - `vPlayer` = max over headings `h` within ±90° of directly away from the enemy of
+      `speed(h) × cos(h − awayBearing)`.
+    - `vEnemy` = max over headings `h` within ±90° of directly toward the player of
+      `speed(h) × cos(h − towardBearing)`.
+
+    So the player's best course away counts, and a chaser that has to beat upwind is
+    slow. Running upwind from a frigate in a sloop should usually succeed, and running
+    downwind rarely.
   - On success: "You showed them your stern." The chaser gets
     `ignorePlayerUntilHours = now + 72 h`, and the player gets a free 20 px separation
     along their heading (checked against land).
@@ -328,7 +397,9 @@ Attacking the ship or failing to run switches to `combat` mode.
   (`sim/combat/ai.ts`: `decide(state, shipIndex): ShipInput`). The RNG is a child
   stream forked per encounter.
 - Combat runs in real time at a fixed 60 Hz step. It pauses on **P**/**Esc** (a pause
-  overlay with "Resume" and "Surrender"), and when the tab is hidden.
+  overlay with "Resume" and "Surrender"). It also pauses when the tab is hidden: on
+  `visibilitychange` to hidden, combat enters the same paused state, so the player comes
+  back to the pause overlay and resumes explicitly.
 - The world clock advances by a flat **6 game hours** per combat, applied at the end.
 - The wind is fixed for the whole fight: the world wind's direction and speed at the
   moment the fight starts.
@@ -523,8 +594,10 @@ interface BoardingResult {
 The placeholder, `MeleeBoardingResolver`, resolves the fight in rounds. In each round,
 each side loses `ceil(opponentCrew × 0.08 × rand(0.5, 1.5))`. A side yields when it
 drops below 30 % of its starting crew or below 50 % of the other side's current crew.
-The defender gets a 10 % bonus (it applies the 0.08 as 0.088). Cap the fight at 30 rounds;
-if it's still undecided, the side with more crew wins.
+The defender gets a 10 % bonus (it applies the 0.08 as 0.088). If both sides meet a yield
+condition in the same round, the side left with the larger fraction of its starting crew
+wins, and on an exact tie the defender wins. Cap the fight at 30 rounds; if it's still
+undecided, the side with more crew wins (on a tie, the defender).
 
 **Melee overlay:** a small parchment panel titled "Boarding!" that animates the two crew
 counts through the rounds over about 3 s (one round every 100–150 ms), then shows
@@ -570,8 +643,8 @@ shows). There is never more than 30 rounds.
 
 ### 10.3 Combat HUD (DOM)
 
-- **Top-left: your ship.** Name, class, crew (current/typical), guns manned per side,
-  and pixel bars for hull and rigging.
+- **Top-left: your ship.** Name, class, crew against `crewTypical` ("Crew 40, needs 40";
+  see §3.3), guns manned per side, and pixel bars for hull and rigging.
 - **Top-right: the enemy.** Nation flag, name, class, crew as an *estimate* (rounded to
   the nearest 10 while the range is over 100 px, exact inside it), and bars for hull and
   rigging.
@@ -590,13 +663,23 @@ shows). There is never more than 30 rounds.
 
 ### 10.4 Balance harness (`scripts/balance.ts`, run with `npm run sim:balance`)
 
+`npm run sim:balance` runs the TypeScript script under Node with `tsx` (MIT), added as a
+**dev** dependency only; it never ships in the build.
+
 Headless: it runs AI vs AI (the player side is driven by the **warship** AI unless
 stated) for N seeded fights per matchup, and prints a table of win, strike, sink,
 board and escape rates and the average fight duration. It needs no DOM and imports only
 `sim/`.
 
 Matchups, with **target outcomes** that are also Vitest assertions at N = 200
-(`tests/balance/balance.test.ts`, allowed to take up to about 20 s):
+(`tests/balance/balance.test.ts`, allowed to take up to about 20 s).
+
+These tests are slow, so they are **not** part of `npm test` or `npm run check`:
+- the Vitest config excludes `tests/balance/`
+- a separate `npm run test:balance` runs them
+- CI runs `npm run check` and then `npm run test:balance`
+- run `test:balance` locally before committing any change to combat code or to
+  `data/ships.ts`/`data/combat.ts`
 
 | Player side vs NPC        | Target                                                      |
 | ------------------------- | ----------------------------------------------------------- |
@@ -615,10 +698,17 @@ If the targets can't be met by tuning the constants in `src/data/combat.ts` and
 - Key `tradewind.save.v2` (keep reading `v1` and migrating it).
 - New fields: `ship.name`, `ship.condition`, `npcs: NpcShip[]`, `nextNpcId`,
   `rngState`, `reputation: Record<NationId, number>`, and
-  `stats: { captured, sunk, defeats, escapedFrom, byNation }`.
-- **Migration v1 → v2:** give the player's sloop full condition, a crew of 40 and all 8
-  guns; set `npcs = []`; seed the RNG from a hash of the v1 save contents so it stays
-  deterministic.
+  `stats: { captured, sunk, defeats, escapedFrom, byNation }`. The player's crew moves
+  from v1's top-level `crew` into `ship.condition.crew`.
+  - `stats`: `captured`, `sunk` and `defeats` count fights won by capture, by sinking,
+    and lost. `escapedFrom` counts fights the player escaped from.
+  - `byNation` is `Record<NationId | 'pirate', { captured: number; sunk: number }>`.
+  - All values are integer counts starting at 0.
+- **Migration v1 → v2:** give the player's sloop full condition, the v1 `crew` (always 40
+  in slice 1) and all 8 guns; set `npcs = []`; seed the RNG from a hash of the v1 save
+  contents so it stays deterministic.
+- The v1 key is read only while no v2 save exists, and it is never deleted. An invalid v2
+  save does not fall back to v1, so an older voyage is never silently resurrected.
 - **Never save mid-combat.** If the page is closed during combat, the save from just
   before the encounter is loaded next time. Auto-save right before entering combat mode
   so that this holds.
@@ -655,7 +745,8 @@ If the targets can't be met by tuning the constants in `src/data/combat.ts` and
 ## 14. Acceptance criteria (manual checklist)
 
 - [ ] Within a minute of sailing from Bridgetown, several ships are visible, sailing
-      plausibly toward ports. They tack when heading east and never sail over land.
+      plausibly toward ports. They tack when heading east and never sail over land. New
+      ships fade in rather than popping into view.
 - [ ] Spanish warships and pirates start chasing when you come near. Merchantmen turn
       and run. English, French and Dutch warships ignore you.
 - [ ] The encounter dialog shows the correct nation, class, name and strength hint. The
@@ -683,8 +774,8 @@ If the targets can't be met by tuning the constants in `src/data/combat.ts` and
       1 still loads.
 - [ ] Touch: you can steer, hoist, reef, fire and pause in portrait and landscape on a
       phone, with no stuck buttons.
-- [ ] `npm run check` (including the balance tests) passes, and `npm run build`
-      succeeds. The game runs the same on the VPS.
+- [ ] `npm run check` and `npm run test:balance` pass, and `npm run build` succeeds. The
+      game runs the same on the VPS.
 - [ ] No names, art or text are taken from the original game (see `CLAUDE.md`).
 
 ## 15. Open questions (decide in an ADR if they come up)

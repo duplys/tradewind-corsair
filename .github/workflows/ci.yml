@@ -16,4 +16,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      # Slow balance tests (slice 2 §10.4); a no-op until the script exists.
+      - run: npm run test:balance --if-present
       - run: npm run build

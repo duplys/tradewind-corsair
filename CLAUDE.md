@@ -65,6 +65,7 @@ npm run test:watch   # vitest in watch mode
 npm run lint         # eslint .
 npm run format       # prettier --write .
 npm run check        # lint + type-check + test (run before every commit)
+npm run test:balance # slow combat balance tests, run by CI (from slice 2 M5)
 npm run sim:balance  # headless AI-vs-AI combat balance table (from slice 2 M5)
 ```
 

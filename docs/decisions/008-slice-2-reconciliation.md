@@ -151,12 +151,11 @@ spec assumes, and how slice 2 handles each one. The spec itself is not edited.
 
 - `npm run sim:balance` (spec §10.4) needs something that runs TypeScript under Node.
   Neither `vite-node` nor `tsx` is installed by the current toolchain, and plain Node
-  cannot resolve this project's extension-less imports. M5 will add `tsx` (MIT) or `vite-node` as a **dev** dependency,
-  which the "no runtime dependencies" rule allows, and record it in `THIRD_PARTY.md` only
-  if it ends up in the build (it will not).
+  cannot resolve this project's extension-less imports. **Resolved (spec updated):** M5
+  adds `tsx` (MIT) as a dev dependency only.
 - The balance tests (spec §10.4, up to about 20 s) would make `npm run check` much slower.
-  To be decided in M5, possibly by moving them to a separate `test:balance` script that
-  CI runs.
+  **Resolved (spec updated):** they run in a separate `npm run test:balance`, which CI
+  runs after `npm run check`.
 
 ## Consequences
 
