@@ -207,7 +207,8 @@ tradewind.example.org {
     encode zstd gzip
     file_server
     header /assets/* Cache-Control "public, max-age=31536000, immutable"
-    header /index.html Cache-Control "no-cache"
+    @page path / /index.html
+    header @page Cache-Control "no-cache"
 }
 ```
 

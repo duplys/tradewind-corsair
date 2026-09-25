@@ -62,15 +62,41 @@ See `CLAUDE.md` for the architecture rules and conventions.
 
 ## Deploying
 
-The build is fully static. `deploy/deploy.sh` builds the game and rsyncs `dist/` to the
-destination in the `DEPLOY_TARGET` environment variable:
+The build is fully static: `dist/` holds `index.html`, `favicon.svg` and hashed files in
+`assets/`. There is no server-side code, no database and no cookies.
+
+### One-time server setup (Caddy on the VPS)
+
+1. Create the web root and give the deploy user write access:
+   ```bash
+   sudo mkdir -p /var/www/tradewind
+   sudo chown deploy:deploy /var/www/tradewind
+   ```
+2. Add the site block from [`deploy/Caddyfile`](deploy/Caddyfile) to
+   `/etc/caddy/Caddyfile`, with your real domain instead of `tradewind.example.org`. Point
+   the domain's DNS at the server first; Caddy gets the HTTPS certificate on its own.
+3. Check and reload Caddy:
+   ```bash
+   sudo caddy validate --config /etc/caddy/Caddyfile
+   sudo systemctl reload caddy
+   ```
+
+### Each deploy
 
 ```bash
 DEPLOY_TARGET=deploy@your-host:/var/www/tradewind/ deploy/deploy.sh
 ```
 
-`deploy/Caddyfile` is an example site block for Caddy. Replace the placeholder domain
-`tradewind.example.org` with the real one on the server.
+The script runs `npm run build` and then `rsync -avz --delete dist/ "$DEPLOY_TARGET"`. It
+stops with an error if `DEPLOY_TARGET` is not set. Keep the trailing slash on the target.
+`--delete` removes the previous build's asset files, which is safe because `index.html` is
+served with `Cache-Control: no-cache` and always points at the new ones.
+
+### After deploying
+
+Open the site in a private window. The title screen should appear within about two
+seconds, with no errors in the browser console. Sail a little, reload, and check that
+**Continue voyage** appears.
 
 ## License
 
