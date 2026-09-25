@@ -2,7 +2,14 @@
 import { NATIONS, type NationId } from '../data/nations';
 import { START_PORT_ID } from '../data/ports';
 import { SHIP_CLASSES } from '../data/ships';
-import { DEFAULT_SHIP_NAME, DEFAULT_VOYAGE_SEED, START_CREW, START_GOLD } from '../data/voyage';
+import {
+  DEFAULT_SHIP_NAME,
+  DEFAULT_VOYAGE_SEED,
+  FIRST_NPC_ID,
+  START_CREW,
+  START_GOLD,
+} from '../data/voyage';
+import type { NpcShip } from './npc/npc';
 import { createRng, type RngState } from './rng';
 import { departFrom } from './sailing/start';
 import type { PlayerShip } from './sailing/ship';
@@ -55,6 +62,9 @@ export interface Voyage {
   readonly rngState: RngState;
   readonly reputation: Reputation;
   readonly stats: VoyageStats;
+  /** Other ships at sea around the player (slice 2 spec §4). */
+  readonly npcs: readonly NpcShip[];
+  readonly nextNpcId: number;
 }
 
 export function neutralReputation(): Reputation {
@@ -95,6 +105,8 @@ export function newVoyage(
     rngState: createRng(seed).state(),
     reputation: neutralReputation(),
     stats: emptyStats(),
+    npcs: [],
+    nextNpcId: FIRST_NPC_ID,
   };
 }
 

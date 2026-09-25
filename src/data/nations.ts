@@ -9,6 +9,8 @@ export type FlagPixels = readonly [string, string, string, string, string, strin
 export interface Nation {
   readonly id: NationId;
   readonly name: string;
+  /** For labels and dialogs: "Spanish fluyt". */
+  readonly adjective: string;
   readonly flag: FlagPixels;
   /** Main colour, for map dots and small markers. */
   readonly color: string;
@@ -18,24 +20,28 @@ export const NATIONS: Readonly<Record<NationId, Nation>> = {
   es: {
     id: 'es',
     name: 'Spain',
+    adjective: 'Spanish',
     flag: ['#b3261e', '#e7c12e', '#b3261e', '#b3261e', '#e7c12e', '#b3261e'],
     color: '#b3261e',
   },
   en: {
     id: 'en',
     name: 'England',
+    adjective: 'English',
     flag: ['#f2f2f2', '#c8102e', '#f2f2f2', '#c8102e', '#c8102e', '#c8102e'],
     color: '#c8102e',
   },
   fr: {
     id: 'fr',
     name: 'France',
+    adjective: 'French',
     flag: ['#2a4fa8', '#f2f2f2', '#2a4fa8', '#2a4fa8', '#f2f2f2', '#2a4fa8'],
     color: '#2a4fa8',
   },
   nl: {
     id: 'nl',
     name: 'Dutch',
+    adjective: 'Dutch',
     flag: ['#e07a1f', '#f2f2f2', '#2a4fa8', '#e07a1f', '#f2f2f2', '#2a4fa8'],
     color: '#e07a1f',
   },

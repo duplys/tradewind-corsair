@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { NATIONS, type NationId } from '../data/nations';
+import type { NpcRole } from '../data/npc';
+import type { Allegiance } from '../data/relations';
 import { SAIL_ORDER, type SailSetting } from '../data/sailing';
 import { SHIP_CLASSES, type ShipClassId } from '../data/ships';
 import { DEFAULT_SHIP_NAME, FIRST_NPC_ID } from '../data/voyage';
 import { normaliseAngle } from '../sim/math';
+import type { NpcIntent, NpcShip } from '../sim/npc/npc';
 import { hashString, isRngState } from '../sim/rng';
 import type { ShipCondition } from '../sim/ships/condition';
 import {
@@ -52,8 +55,8 @@ export interface SaveV2 {
   readonly gold: number;
   readonly hintsShown: number;
   readonly lastPortId: string;
-  /** NPC ships at sea. Always empty until NPCs exist (slice 2 M2). */
-  readonly npcs: readonly never[];
+  /** NPC ships at sea, exactly as the simulation holds them. */
+  readonly npcs: readonly NpcShip[];
   readonly nextNpcId: number;
   readonly rngState: number;
   readonly reputation: Readonly<Record<NationId, number>>;
@@ -78,8 +81,8 @@ export function toSaveData(voyage: Voyage): SaveV2 {
     gold: voyage.gold,
     hintsShown: voyage.hintsShown,
     lastPortId: voyage.lastPortId,
-    npcs: [],
-    nextNpcId: FIRST_NPC_ID,
+    npcs: voyage.npcs,
+    nextNpcId: voyage.nextNpcId,
     rngState: voyage.rngState,
     reputation: { ...voyage.reputation },
     stats: voyage.stats,
@@ -168,6 +171,99 @@ function validateCondition(raw: unknown, classId: ShipClassId): ShipCondition | 
   return { hullPct, riggingPct, crew, gunsIntact };
 }
 
+const NPC_ROLES: readonly NpcRole[] = ['trader', 'warship', 'pirate'];
+const NPC_INTENTS: readonly NpcIntent[] = ['travel', 'chase', 'flee', 'ignore-player'];
+const MAX_NPC_PATH_POINTS = 1000;
+
+function isPoint(value: unknown): value is Json & { x: number; y: number } {
+  return isObject(value) && isFiniteNumber(value.x) && isFiniteNumber(value.y);
+}
+
+function isAllegiance(value: unknown): value is Allegiance {
+  return value === 'pirate' || (typeof value === 'string' && Object.hasOwn(NATIONS, value));
+}
+
+/**
+ * One saved NPC (slice 2 spec §11): on water inside the world, a known class, nation, role and
+ * destination, a valid condition and well-formed navigation state. Null if anything is off.
+ */
+function validateNpc(raw: unknown, ctx: SaveContext): NpcShip | null {
+  if (!isObject(raw)) return null;
+  const { id, classId, nation, role, name, ship, destPortId, path, tack, intent } = raw;
+  if (!isCount(id) || id < FIRST_NPC_ID || !isShipClassId(classId) || !isAllegiance(nation)) {
+    return null;
+  }
+  if (typeof role !== 'string' || !(NPC_ROLES as readonly string[]).includes(role)) return null;
+  if ((nation === 'pirate') !== (role === 'pirate')) return null;
+  if (typeof name !== 'string' || name.trim() === '') return null;
+  if (typeof destPortId !== 'string' || !ctx.portIds.has(destPortId)) return null;
+  if (typeof intent !== 'string' || !(NPC_INTENTS as readonly string[]).includes(intent))
+    return null;
+  if (!isFiniteNumber(raw.ignorePlayerUntilHours) || !isFiniteNumber(raw.targetHeadingRad)) {
+    return null;
+  }
+  if (!isObject(ship) || !isPoint(ship) || !isFiniteNumber(ship.headingRad)) return null;
+  if (!isFiniteNumber(ship.speedKn) || ship.speedKn < 0) return null;
+  if (typeof ship.sail !== 'string' || !(SAIL_ORDER as readonly string[]).includes(ship.sail)) {
+    return null;
+  }
+  const { world } = ctx;
+  if (ship.x < 0 || ship.y < 0 || ship.x >= world.width || ship.y >= world.height) return null;
+  if (isLand(world, ship.x, ship.y)) return null;
+  const condition = validateCondition(raw.condition, classId);
+  if (!condition) return null;
+  if (!Array.isArray(path) || path.length > MAX_NPC_PATH_POINTS || !path.every(isPoint)) {
+    return null;
+  }
+  let validTack: NpcShip['tack'] = null;
+  if (tack !== null) {
+    if (!isObject(tack) || (tack.side !== 1 && tack.side !== -1)) return null;
+    if (!isFiniteNumber(tack.untilHours)) return null;
+    validTack = { side: tack.side, untilHours: tack.untilHours };
+  }
+  const { home, progress } = raw;
+  if (!isPoint(home) || !isPoint(progress) || !isFiniteNumber(progress.atHours)) return null;
+  return {
+    id,
+    classId,
+    nation,
+    role: role as NpcRole,
+    name,
+    ship: {
+      x: ship.x,
+      y: ship.y,
+      headingRad: normaliseAngle(ship.headingRad),
+      speedKn: ship.speedKn,
+      sail: ship.sail as SailSetting,
+    },
+    condition,
+    destPortId,
+    path: path.map((p) => ({ x: p.x, y: p.y })),
+    tack: validTack,
+    intent: intent as NpcIntent,
+    ignorePlayerUntilHours: raw.ignorePlayerUntilHours,
+    home: { x: home.x, y: home.y },
+    targetHeadingRad: raw.targetHeadingRad,
+    progress: { x: progress.x, y: progress.y, atHours: progress.atHours },
+  };
+}
+
+/** Keep the valid NPCs (first of any duplicate id), dropping the rest with one warning. */
+function validateNpcs(raw: readonly unknown[], ctx: SaveContext): NpcShip[] {
+  const kept: NpcShip[] = [];
+  const ids = new Set<number>();
+  for (const entry of raw) {
+    const npc = validateNpc(entry, ctx);
+    if (npc && !ids.has(npc.id)) {
+      kept.push(npc);
+      ids.add(npc.id);
+    }
+  }
+  const dropped = raw.length - kept.length;
+  if (dropped > 0) ctx.warn?.(`Save: dropped ${dropped} invalid NPC ship(s).`);
+  return kept;
+}
+
 function validateReputation(raw: unknown): Record<NationId, number> | null {
   if (!isObject(raw)) return null;
   const reputation = neutralReputation() as Record<NationId, number>;
@@ -196,8 +292,7 @@ function validateStats(raw: unknown): VoyageStats | null {
 
 /**
  * Check every field of a migrated save (slice 1 spec §11, slice 2 spec §11); returns the typed
- * save or null. NPC entries are dropped individually without invalidating the save; until NPC
- * ships exist (slice 2 M2) every entry is dropped.
+ * save or null. Invalid NPC entries are dropped individually without invalidating the save.
  */
 export function validateSave(raw: Json, ctx: SaveContext): SaveV2 | null {
   const ship = raw.ship;
@@ -226,9 +321,9 @@ export function validateSave(raw: Json, ctx: SaveContext): SaveV2 | null {
   if (x < 0 || y < 0 || x >= world.width || y >= world.height) return null;
   if (isLand(world, x, y)) return null;
 
-  if (npcs.length > 0) {
-    ctx.warn?.(`Save: dropped ${npcs.length} NPC ship(s); NPCs are not supported yet.`);
-  }
+  const validNpcs = validateNpcs(npcs, ctx);
+  // Never hand out an id that a saved NPC already has.
+  const safeNextId = Math.max(nextNpcId, ...validNpcs.map((n) => n.id + 1));
 
   return {
     version: 2,
@@ -246,8 +341,8 @@ export function validateSave(raw: Json, ctx: SaveContext): SaveV2 | null {
     gold,
     hintsShown,
     lastPortId,
-    npcs: [],
-    nextNpcId,
+    npcs: validNpcs,
+    nextNpcId: safeNextId,
     rngState,
     reputation,
     stats,
@@ -282,5 +377,7 @@ export function parseSave(text: string | null, ctx: SaveContext): Voyage | null 
     rngState: save.rngState,
     reputation: save.reputation,
     stats: save.stats,
+    npcs: save.npcs,
+    nextNpcId: save.nextNpcId,
   };
 }

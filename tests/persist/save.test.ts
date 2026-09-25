@@ -16,6 +16,7 @@ import { derivePorts, findPort, type Port } from '../../src/sim/world/ports';
 import { lonLatToWorld } from '../../src/sim/world/projection';
 import { buildWorld } from '../../src/sim/world/world';
 import V1_FIXTURE from './fixtures/save-v1.json?raw';
+import { makeNpc } from '../sim/npc/helpers';
 
 // V1_FIXTURE: a save written by the slice 1 game (generated with that code, byte for byte).
 
@@ -305,5 +306,69 @@ describe('SaveStore', () => {
     const store = new SaveStore(throwing, ctx);
     expect(store.load()).toBeNull();
     expect(store.save(voyage)).toBe(false);
+  });
+});
+
+describe('NPCs in the save', () => {
+  function withNpcs(): Voyage {
+    const at = { x: voyage.ship.x, y: voyage.ship.y };
+    const npc = makeNpc({
+      id: 4,
+      classId: 'fluyt',
+      nation: 'nl',
+      destPortId: 'willemstad',
+      ship: { ...at, headingRad: 1, speedKn: 4.5, sail: 'half' },
+      path: [
+        { x: at.x + 20, y: at.y },
+        { x: at.x + 40, y: at.y + 5 },
+      ],
+      tack: { side: -1, untilHours: 1300 },
+      home: at,
+      progress: { ...at, atHours: 1234 },
+    });
+    const pirate = makeNpc({
+      id: 7,
+      classId: 'brigantine',
+      nation: 'pirate',
+      role: 'pirate',
+      name: 'Black Gull',
+      destPortId: 'nassau',
+      ship: { ...at, headingRad: -2, speedKn: 6, sail: 'full' },
+      home: at,
+      progress: { ...at, atHours: 1234 },
+    });
+    return { ...voyage, npcs: [npc, pirate], nextNpcId: 8 };
+  }
+
+  it('round-trips NPC ships exactly', () => {
+    const v = withNpcs();
+    expect(parseSave(JSON.stringify(toSaveData(v)), ctx)).toEqual({ ...v, dockedPortId: null });
+  });
+
+  it('drops only the invalid NPCs, with one warning', () => {
+    const v = withNpcs();
+    const data = toSaveData(v);
+    const jamaica = lonLatToWorld(-77.3, 18.1);
+    const bad = [
+      { ...data.npcs[0]!, id: 20, ship: { ...data.npcs[0]!.ship, x: jamaica.x, y: jamaica.y } },
+      { ...data.npcs[0]!, id: 21, destPortId: 'atlantis' },
+      { ...data.npcs[0]!, id: 22, condition: { ...data.npcs[0]!.condition, hullPct: 140 } },
+      { ...data.npcs[0]!, id: 23, nation: 'pirate' }, // a pirate flag on a trader
+      { ...data.npcs[0]!, id: 24, path: [{ x: 1, y: 'y' }] },
+      { ...data.npcs[0]!, id: 4 }, // duplicate id
+    ];
+    const warnings: string[] = [];
+    const loaded = parseSave(JSON.stringify({ ...data, npcs: [...data.npcs, ...bad] }), {
+      ...ctx,
+      warn: (m) => warnings.push(m),
+    });
+    expect(loaded?.npcs.map((n) => n.id)).toEqual([4, 7]);
+    expect(warnings).toHaveLength(1);
+  });
+
+  it('never reuses the id of a saved NPC', () => {
+    const data = toSaveData(withNpcs());
+    const loaded = parseSave(JSON.stringify({ ...data, nextNpcId: 3 }), ctx);
+    expect(loaded?.nextNpcId).toBe(8);
   });
 });
