@@ -74,7 +74,7 @@ export function stepNpcWorld(
   for (const before of state.npcs) {
     let npc = before;
     if (aiTick) {
-      const decision = decideSailing(npc, { wind, hours: hoursAfter, nav, rng: worldRng });
+      const decision = decideSailing(npc, { wind, hours: hoursAfter, nav, player, rng: worldRng });
       if ('leave' in decision) {
         (departed ??= []).push(before);
         continue;

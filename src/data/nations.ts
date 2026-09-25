@@ -11,6 +11,8 @@ export interface Nation {
   readonly name: string;
   /** For labels and dialogs: "Spanish fluyt". */
   readonly adjective: string;
+  /** For sentences: "Spain is at peace with the Dutch Republic". */
+  readonly sentenceName: string;
   readonly flag: FlagPixels;
   /** Main colour, for map dots and small markers. */
   readonly color: string;
@@ -21,6 +23,7 @@ export const NATIONS: Readonly<Record<NationId, Nation>> = {
     id: 'es',
     name: 'Spain',
     adjective: 'Spanish',
+    sentenceName: 'Spain',
     flag: ['#b3261e', '#e7c12e', '#b3261e', '#b3261e', '#e7c12e', '#b3261e'],
     color: '#b3261e',
   },
@@ -28,6 +31,7 @@ export const NATIONS: Readonly<Record<NationId, Nation>> = {
     id: 'en',
     name: 'England',
     adjective: 'English',
+    sentenceName: 'England',
     flag: ['#f2f2f2', '#c8102e', '#f2f2f2', '#c8102e', '#c8102e', '#c8102e'],
     color: '#c8102e',
   },
@@ -35,14 +39,26 @@ export const NATIONS: Readonly<Record<NationId, Nation>> = {
     id: 'fr',
     name: 'France',
     adjective: 'French',
+    sentenceName: 'France',
     flag: ['#2a4fa8', '#f2f2f2', '#2a4fa8', '#2a4fa8', '#f2f2f2', '#2a4fa8'],
     color: '#2a4fa8',
   },
   nl: {
     id: 'nl',
-    name: 'Dutch',
+    name: 'Dutch Republic',
     adjective: 'Dutch',
+    sentenceName: 'the Dutch Republic',
     flag: ['#e07a1f', '#f2f2f2', '#2a4fa8', '#e07a1f', '#f2f2f2', '#2a4fa8'],
     color: '#e07a1f',
   },
 };
+
+/** The pirates' flag for dialogs: black with a white mark (an original emblem). */
+export const PIRATE_FLAG: FlagPixels = [
+  '#141414',
+  '#141414',
+  '#141414',
+  '#141414',
+  '#f2f2f2',
+  '#141414',
+];

@@ -202,7 +202,7 @@ function validateNpc(raw: unknown, ctx: SaveContext): NpcShip | null {
   if (!isFiniteNumber(raw.ignorePlayerUntilHours) || !isFiniteNumber(raw.targetHeadingRad)) {
     return null;
   }
-  if (!isFiniteNumber(raw.loiterUntilHours)) return null;
+  if (!isFiniteNumber(raw.loiterUntilHours) || !isFiniteNumber(raw.intentSinceHours)) return null;
   if (!isObject(ship) || !isPoint(ship) || !isFiniteNumber(ship.headingRad)) return null;
   if (!isFiniteNumber(ship.speedKn) || ship.speedKn < 0) return null;
   if (typeof ship.sail !== 'string' || !(SAIL_ORDER as readonly string[]).includes(ship.sail)) {
@@ -242,6 +242,7 @@ function validateNpc(raw: unknown, ctx: SaveContext): NpcShip | null {
     path: path.map((p) => ({ x: p.x, y: p.y })),
     tack: validTack,
     intent: intent as NpcIntent,
+    intentSinceHours: raw.intentSinceHours,
     ignorePlayerUntilHours: raw.ignorePlayerUntilHours,
     home: { x: home.x, y: home.y },
     loiterUntilHours: raw.loiterUntilHours,

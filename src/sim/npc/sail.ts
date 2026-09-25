@@ -1,5 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import {
+  CHASE_GIVE_UP_PX,
+  CHASE_MAX_HOURS,
+  CHASE_REST_HOURS,
+  CHASE_START_PX,
+  FLEE_END_PX,
+  FLEE_START_PX,
+} from '../../data/encounter';
+import { hostileToPlayer } from '../../data/relations';
+import {
   NPC_ARRIVAL_PX,
   PIRATE_LOITER_RADIUS_PX,
   STEER_DEAD_BAND_DEG,
@@ -18,7 +27,7 @@ import type { ShipInput } from '../sailing/ship';
 import type { Wind } from '../sailing/wind';
 import type { WorldPoint } from '../world/projection';
 import type { Navigator } from './navigator';
-import type { NpcShip, NpcTack } from './npc';
+import type { NpcIntent, NpcShip, NpcTack } from './npc';
 
 const DEG = Math.PI / 180;
 
@@ -26,6 +35,8 @@ export interface SailContext {
   readonly wind: Wind;
   readonly hours: number;
   readonly nav: Navigator;
+  /** Where the player's ship is: chasers steer for it and traders run from it. */
+  readonly player: WorldPoint;
   /** Drawn from only when a pirate needs a new place to loiter. */
   readonly rng: () => Rng;
 }
@@ -89,15 +100,73 @@ function finalTarget(npc: NpcShip, nav: Navigator, hours: number): WorldPoint | 
   return nav.port(npc.destPortId)?.harbour ?? null;
 }
 
+/** Pirates, and warships of nations at war with England, hunt the player (slice 2 spec §5.2). */
+export function huntsPlayer(npc: NpcShip): boolean {
+  return npc.role === 'pirate' || (npc.role === 'warship' && hostileToPlayer(npc.nation));
+}
+
+/** Traders whose nation is at war with England run from the player (slice 2 spec §5.2). */
+export function runsFromPlayer(npc: NpcShip): boolean {
+  return npc.role === 'trader' && hostileToPlayer(npc.nation);
+}
+
 /**
- * One AI decision for travelling NPCs (slice 2 spec §4.4), made 10 times per second: follow the
- * path, tack when needed, find a new route when stuck, and make pirates loiter near home.
- * Pure apart from drawing from the world RNG for pirates' loiter points.
+ * The NPC's attitude to the player (slice 2 spec §5.2). Hunters chase within 70 px and give up
+ * beyond 140 px or after 3 days (then rest for a day before hunting again); hostile traders
+ * flee within 50 px and resume their voyage beyond 110 px. A ship ignoring the player does
+ * neither.
+ */
+export function nextIntent(
+  npc: NpcShip,
+  player: WorldPoint,
+  hours: number,
+): Pick<NpcShip, 'intent' | 'intentSinceHours' | 'ignorePlayerUntilHours'> {
+  const d = dist(npc.ship, player);
+  const same = {
+    intent: npc.intent,
+    intentSinceHours: npc.intentSinceHours,
+    ignorePlayerUntilHours: npc.ignorePlayerUntilHours,
+  };
+  const become = (intent: NpcIntent, ignoreUntil = npc.ignorePlayerUntilHours) => ({
+    intent,
+    intentSinceHours: hours,
+    ignorePlayerUntilHours: ignoreUntil,
+  });
+  const ignoring = hours < npc.ignorePlayerUntilHours;
+  switch (npc.intent) {
+    case 'chase':
+      if (ignoring || d > CHASE_GIVE_UP_PX) return become('travel');
+      if (hours - npc.intentSinceHours >= CHASE_MAX_HOURS) {
+        return become('travel', hours + CHASE_REST_HOURS);
+      }
+      return same;
+    case 'flee':
+      return ignoring || d > FLEE_END_PX ? become('travel') : same;
+    default:
+      if (ignoring) return same;
+      if (huntsPlayer(npc) && d <= CHASE_START_PX) return become('chase');
+      if (runsFromPlayer(npc) && d <= FLEE_START_PX) return become('flee');
+      return same;
+  }
+}
+
+/**
+ * One AI decision (slice 2 spec §4.4, §5.2), made 10 times per second: chase or flee the
+ * player when that applies, otherwise follow the path, tack when needed, find a new route when
+ * stuck, and make pirates loiter near home. Pure apart from drawing from the world RNG for
+ * pirates' loiter points.
  */
 export function decideSailing(npc: NpcShip, ctx: SailContext): SailDecision {
   const { nav, hours } = ctx;
   const here = npc.ship;
-  let path = npc.path;
+  const attitude = nextIntent(npc, ctx.player, hours);
+  if (attitude.intent === 'chase' || attitude.intent === 'flee') {
+    return { npc: pursue({ ...npc, ...attitude }, ctx) };
+  }
+  // Back from a chase or flight: plan a fresh route from wherever the ship is now.
+  const resumed = attitude.intent !== npc.intent;
+  npc = { ...npc, ...attitude };
+  let path = resumed ? [] : npc.path;
   while (path.length > 0 && dist(here, path[0]!) < WAYPOINT_REACHED_PX) path = path.slice(1);
 
   // Stuck detection: less than 3 px in 12 hours means a new route (or giving up).
@@ -148,5 +217,39 @@ export function decideSailing(npc: NpcShip, ctx: SailContext): SailDecision {
       targetHeadingRad: course.headingRad,
       ship: here.sail === 'full' ? here : { ...here, sail: 'full' },
     },
+  };
+}
+
+/**
+ * Chase (steer straight at the player) or flee (straight away), tacking when that course lies
+ * in the wind's eye. A chase that makes no progress for 12 hours (blocked by land) ends, and
+ * the ship leaves the player alone for a day.
+ */
+function pursue(npc: NpcShip, ctx: SailContext): NpcShip {
+  const { hours, player } = ctx;
+  const here = npc.ship;
+  let progress = npc.progress;
+  if (hours - progress.atHours >= STUCK_WINDOW_HOURS) {
+    if (dist(here, progress) < STUCK_MIN_MOVE_PX) {
+      return {
+        ...npc,
+        intent: 'travel',
+        intentSinceHours: hours,
+        ignorePlayerUntilHours: hours + CHASE_REST_HOURS,
+        path: [],
+        progress: { x: here.x, y: here.y, atHours: hours },
+      };
+    }
+    progress = { x: here.x, y: here.y, atHours: hours };
+  }
+  const toward = Math.atan2(player.y - here.y, player.x - here.x);
+  const bearing = npc.intent === 'flee' ? normaliseAngle(toward + Math.PI) : toward;
+  const course = courseFor(bearing, npc.tack, ctx.wind, hours);
+  return {
+    ...npc,
+    progress,
+    tack: course.tack,
+    targetHeadingRad: course.headingRad,
+    ship: here.sail === 'full' ? here : { ...here, sail: 'full' },
   };
 }

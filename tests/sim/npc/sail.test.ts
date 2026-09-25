@@ -5,7 +5,7 @@ import { angleDiff, radToDeg } from '../../../src/sim/math';
 import { courseFor, decideSailing, helmInput } from '../../../src/sim/npc/sail';
 import { createRng } from '../../../src/sim/rng';
 import type { Wind } from '../../../src/sim/sailing/wind';
-import { makeNpc, openSea, sailAlone } from './helpers';
+import { FAR_AWAY, makeNpc, openSea, sailAlone } from './helpers';
 
 /** Wind blowing toward the west, i.e. from the east: east is upwind. */
 const EASTERLY: Wind = { towardRad: Math.PI, speedKn: 14 };
@@ -103,7 +103,13 @@ describe('world-map sailing', () => {
   it('enters port on reaching the destination harbour', () => {
     const nav = openSea(400, 400, { x: 200, y: 200 });
     const npc = makeNpc({ ship: { x: 205, y: 200, headingRad: 0, speedKn: 0, sail: 'full' } });
-    const d = decideSailing(npc, { wind: EASTERLY, hours: 1, nav, rng: () => createRng(1) });
+    const d = decideSailing(npc, {
+      wind: EASTERLY,
+      hours: 1,
+      nav,
+      player: FAR_AWAY,
+      rng: () => createRng(1),
+    });
     expect(d).toEqual({ leave: 'arrived' });
   });
 
@@ -114,13 +120,25 @@ describe('world-map sailing', () => {
       path: [],
       progress: { x: 100, y: 200, atHours: 0 },
     });
-    const d = decideSailing(stuck, { wind: EASTERLY, hours: 12, nav, rng: () => createRng(1) });
+    const d = decideSailing(stuck, {
+      wind: EASTERLY,
+      hours: 12,
+      nav,
+      player: FAR_AWAY,
+      rng: () => createRng(1),
+    });
     expect('npc' in d && d.npc.path.length).toBeGreaterThan(0);
     expect('npc' in d && d.npc.progress.atHours).toBe(12);
 
     const lost = makeNpc({ destPortId: 'nowhere', progress: { x: 100, y: 200, atHours: 0 } });
     expect(
-      decideSailing(lost, { wind: EASTERLY, hours: 12, nav, rng: () => createRng(1) }),
+      decideSailing(lost, {
+        wind: EASTERLY,
+        hours: 12,
+        nav,
+        player: FAR_AWAY,
+        rng: () => createRng(1),
+      }),
     ).toEqual({
       leave: 'lost',
     });

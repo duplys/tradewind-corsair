@@ -138,3 +138,11 @@ export function repairShip(voyage: Voyage, plan: RepairPlan): Voyage {
     elapsedHours: voyage.elapsedHours + plan.hours,
   };
 }
+
+/** Change the player's standing with a nation (slice 2 spec §5.1). */
+export function adjustReputation(voyage: Voyage, nation: NationId, delta: number): Voyage {
+  return {
+    ...voyage,
+    reputation: { ...voyage.reputation, [nation]: voyage.reputation[nation] + delta },
+  };
+}

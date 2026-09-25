@@ -23,6 +23,9 @@ export function openSea(width: number, height: number, harbour: WorldPoint): Nav
   return new Navigator(world, [port]);
 }
 
+/** A player position far from every test ship, so nobody chases or flees. */
+export const FAR_AWAY: WorldPoint = { x: -1e6, y: -1e6 };
+
 export function makeNpc(overrides: Partial<NpcShip> & { classId?: ShipClassId } = {}): NpcShip {
   const classId = overrides.classId ?? 'sloop';
   const at = overrides.ship ?? { x: 100, y: 200, headingRad: 0, speedKn: 0, sail: 'full' as const };
@@ -37,6 +40,7 @@ export function makeNpc(overrides: Partial<NpcShip> & { classId?: ShipClassId } 
     path: [],
     tack: null,
     intent: 'travel',
+    intentSinceHours: 0,
     ignorePlayerUntilHours: 0,
     home: { x: at.x, y: at.y },
     loiterUntilHours: 0,
@@ -64,7 +68,7 @@ export function sailAlone(
   while (hours < maxHours) {
     const next = advanceClock(hours, SIM_STEP_SECONDS);
     if (Math.floor(next / 0.4) !== Math.floor(hours / 0.4)) {
-      const d = decideSailing(npc, { wind, hours: next, nav, rng: () => rng });
+      const d = decideSailing(npc, { wind, hours: next, nav, player: FAR_AWAY, rng: () => rng });
       if ('leave' in d) return { npc, left: d, hours: next };
       npc = d.npc;
     }

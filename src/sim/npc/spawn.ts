@@ -184,6 +184,7 @@ export function spawnNpc(ctx: SpawnContext): NpcShip | null {
     path,
     tack: null,
     intent: 'travel',
+    intentSinceHours: ctx.hours,
     ignorePlayerUntilHours: 0,
     home: { x: at.x, y: at.y },
     loiterUntilHours: role === 'pirate' ? ctx.hours + PIRATE_LOITER_HOURS : 0,
