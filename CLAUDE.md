@@ -65,6 +65,7 @@ npm run test:watch   # vitest in watch mode
 npm run lint         # eslint .
 npm run format       # prettier --write .
 npm run check        # lint + type-check + test (run before every commit)
+npm run sim:balance  # headless AI-vs-AI combat balance table (from slice 2 M5)
 ```
 
 If a script is missing, add it to `package.json` rather than working around it.
@@ -79,9 +80,12 @@ src/
   game/                # orchestration: Game class, mode/scene state machine, loop
   sim/                 # PURE simulation: no DOM, no canvas, no Date.now(), no Math.random()
     world/             # geography data, land mask, ports
-    sailing/           # ship physics, wind model, polar tables
+    sailing/           # ship physics (one stepShip for every ship), wind model, polar tables
+    ships/             # ship condition (hull, rigging, crew, guns) and its effects
+    npc/               # NPC ships on the world map: spawning, navigation, sailing AI
+    combat/            # tactical ship combat: arena, broadsides, hits, combat AI
     time.ts            # game calendar
-    rng.ts             # seeded PRNG
+    rng.ts             # seeded PRNG (serialisable, forkable)
   render/              # canvas drawing: map rendering, sprites, camera, effects
   ui/                  # DOM overlays: HUD, dialogs, touch controls, title screen
   input/               # keyboard + pointer -> abstract actions
@@ -89,6 +93,7 @@ src/
   data/                # static tables (ports, ships, nations) as typed TS modules
   styles/              # CSS
 tests/                 # mirrors src/sim etc.; *.test.ts
+scripts/               # headless tools (e.g. the balance harness); import only sim/ and data/
 docs/
   specs/               # one spec per slice (slice-01-sailing.md, ...)
   decisions/           # short ADRs when a spec leaves a choice open
@@ -98,9 +103,10 @@ Rules:
 
 1. **`src/sim/` is pure and deterministic.** It does not import from `render/`, `ui/`,
    `input/` or any browser API. All randomness goes through the seeded PRNG in
-   `sim/rng.ts`. Time comes from the game clock and never from the wall clock. Given
-   the same seed and the same inputs, the simulation produces the same result. This is
-   what makes it testable.
+   `sim/rng.ts`; derive independent streams with `rng.fork(label)` (for example one per
+   encounter), and remember the world RNG state is part of the save. Time comes from the
+   game clock and never from the wall clock. Given the same seed and the same inputs, the
+   simulation produces the same result. This is what makes it testable.
 2. **Fixed-timestep simulation, variable-rate rendering.** The loop advances the sim in
    fixed steps (1/60 s) using an accumulator, then renders once per animation frame.
    Clamp frame delta to 250 ms so a background tab does not fast-forward the world.
