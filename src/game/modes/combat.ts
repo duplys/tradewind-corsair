@@ -8,7 +8,8 @@ import { drawCombatScene, SplashRing } from '../../render/combatScene';
 import type { SeaScene } from '../../render/scene';
 import { applyCombatResult } from '../../sim/combat/result';
 import { createCombat, type CombatState } from '../../sim/combat/state';
-import { HOLD, stepCombat, type CombatEvent, type CombatInput } from '../../sim/combat/step';
+import { decide } from '../../sim/combat/ai';
+import { stepCombat, type CombatEvent, type CombatInput } from '../../sim/combat/step';
 import type { NpcShip } from '../../sim/npc/npc';
 import { restoreRng } from '../../sim/rng';
 import { windAt } from '../../sim/sailing/wind';
@@ -44,8 +45,8 @@ export interface CombatDeps {
 }
 
 /**
- * Ship combat (slice 2 spec §6). In M4 the enemy lies still with furled sails (the combat AI
- * arrives in M5), and a result card stands in for the outcome screens of M7.
+ * Ship combat (slice 2 spec §6): the player against an enemy sailed by the combat AI (§7). A
+ * result card stands in for the outcome screens of M7.
  */
 export class CombatMode implements Mode {
   readonly id = 'combat';
@@ -87,14 +88,13 @@ export class CombatMode implements Mode {
         speedKn: ship.speedKn,
         sail: ship.sail,
       },
-      // M4: a stationary target, sails furled (the combat AI arrives in M5).
       enemy: {
         classId: npc.classId,
         role: npc.role,
         condition: npc.condition,
         headingRad: npc.ship.headingRad,
         speedKn: npc.ship.speedKn,
-        sail: 'furled',
+        sail: npc.ship.sail,
       },
       wind: windAt(ship.x, ship.y, voyage.elapsedHours),
       rng,
@@ -144,7 +144,13 @@ export class CombatMode implements Mode {
     };
     this.sail = 0;
     this.fire = null;
-    const events = stepCombat(combat, input, HOLD, dtSec);
+    const enemy = combat.ships[1];
+    const events = stepCombat(
+      combat,
+      input,
+      decide(combat, 1, enemy.role === 'player' ? 'warship' : enemy.role),
+      dtSec,
+    );
     for (const event of events) this.react(event);
     this.warnings(combat);
     if (combat.outcome) this.showResult(combat);

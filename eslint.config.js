@@ -42,5 +42,25 @@ export default defineConfig(
       ],
     },
   },
+  {
+    // Headless tools import only the simulation and its data (CLAUDE.md, scripts/).
+    files: ['scripts/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['render', 'ui', 'input', 'persist', 'game'].flatMap((dir) => [
+                `**/${dir}`,
+                `**/${dir}/**`,
+              ]),
+              message: 'scripts/ may import only src/sim and src/data.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 );
