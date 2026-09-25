@@ -6,6 +6,7 @@ import {
   damageCondition,
   effectiveMaxSpeedKn,
   effectiveTurnRateRadPerSec,
+  floodingFactor,
   fullCondition,
   gunsMannedPerBroadside,
   performanceOf,
@@ -59,10 +60,18 @@ describe('speed and turning', () => {
     expect(effectiveTurnRateRadPerSec(sloop, { ...full(), riggingPct: 50 })).toBeCloseTo(1.28);
   });
 
-  it('ignores hull damage and lost guns for sailing', () => {
-    const battered = { ...full(), hullPct: 10, gunsIntact: 2 };
+  it('ignores lost guns, and hull damage down to 30 %', () => {
+    const battered = { ...full(), hullPct: 30, gunsIntact: 2 };
     expect(effectiveMaxSpeedKn(sloop, battered)).toBe(9);
     expect(effectiveTurnRateRadPerSec(sloop, battered)).toBe(1.6);
+  });
+
+  it('slows a ship taking water below 30 % hull, to 70 % at 0 % (ADR 013)', () => {
+    expect(floodingFactor({ ...full(), hullPct: 30 })).toBe(1);
+    expect(floodingFactor({ ...full(), hullPct: 15 })).toBeCloseTo(0.85);
+    expect(floodingFactor({ ...full(), hullPct: 0 })).toBeCloseTo(0.7);
+    expect(effectiveMaxSpeedKn(sloop, { ...full(), hullPct: 0 })).toBeCloseTo(9 * 0.7);
+    expect(effectiveTurnRateRadPerSec(sloop, { ...full(), hullPct: 0 })).toBe(1.6);
   });
 });
 

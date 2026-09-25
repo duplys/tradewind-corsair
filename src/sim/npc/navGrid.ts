@@ -24,6 +24,27 @@ export interface NavGrid {
    * navigable cell in line of sight, so no leg between neighbouring cells grazes land.
    */
   readonly moves: Uint8Array;
+  /** Reusable A* buffers, so path searches allocate no arrays. */
+  readonly scratch: AStarScratch;
+}
+
+/** Scratch buffers for A*, reused between searches on the same grid. */
+interface AStarScratch {
+  readonly g: Float64Array;
+  readonly came: Int32Array;
+  readonly closed: Uint8Array;
+  readonly heapCells: Int32Array;
+  readonly heapKeys: Float64Array;
+}
+
+function createScratch(cells: number): AStarScratch {
+  return {
+    g: new Float64Array(cells),
+    came: new Int32Array(cells),
+    closed: new Uint8Array(cells),
+    heapCells: new Int32Array(cells * 8 + 1),
+    heapKeys: new Float64Array(cells * 8 + 1),
+  };
 }
 
 // Neighbour offsets: 4 straight, then 4 diagonal.
@@ -72,7 +93,7 @@ export function buildNavGrid(world: World, cellPx: number = NAV_CELL_PX): NavGri
       }
     }
   }
-  return { cols, rows, cellPx, navigable, moves };
+  return { cols, rows, cellPx, navigable, moves, scratch: createScratch(cols * rows) };
 }
 
 /** The cell containing a world point, or −1 outside the grid. */
@@ -104,32 +125,6 @@ export function lineOfSight(world: World, a: WorldPoint, b: WorldPoint): boolean
   return true;
 }
 
-/** Scratch buffers for A*, reused between searches on the same grid. */
-interface AStarScratch {
-  readonly g: Float64Array;
-  readonly came: Int32Array;
-  readonly closed: Uint8Array;
-  readonly heapCells: Int32Array;
-  readonly heapKeys: Float64Array;
-}
-const scratchByGrid = new WeakMap<NavGrid, AStarScratch>();
-
-function scratchFor(grid: NavGrid): AStarScratch {
-  let s = scratchByGrid.get(grid);
-  if (!s) {
-    const n = grid.cols * grid.rows;
-    s = {
-      g: new Float64Array(n),
-      came: new Int32Array(n),
-      closed: new Uint8Array(n),
-      heapCells: new Int32Array(n * 8 + 1),
-      heapKeys: new Float64Array(n * 8 + 1),
-    };
-    scratchByGrid.set(grid, s);
-  }
-  return s;
-}
-
 /**
  * A* over navigable cells with 8-way moves (cost 1 and √2) and an octile heuristic, using only
  * the moves the grid allows (in line of sight, no corner cutting). Returns the cells from start
@@ -139,7 +134,7 @@ export function findCellPath(grid: NavGrid, start: number, goal: number): number
   const { cols, navigable, moves } = grid;
   if (!navigable[start] || !navigable[goal]) return null;
   if (start === goal) return [start];
-  const { g, came, closed, heapCells, heapKeys } = scratchFor(grid);
+  const { g, came, closed, heapCells, heapKeys } = grid.scratch;
   g.fill(Infinity);
   closed.fill(0);
   const goalCol = goal % cols;

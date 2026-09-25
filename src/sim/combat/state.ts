@@ -1,15 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-only
-import {
-  ARENA_H_PX,
-  ARENA_W_PX,
-  CAUGHT_START_DISTANCE_PX,
-  MAX_BALLS,
-  START_DISTANCE_PX,
-} from '../../data/combat';
+import { CAUGHT_START_DISTANCE_PX, MAX_BALLS, START_DISTANCE_PX } from '../../data/combat';
 import type { NpcRole } from '../../data/npc';
 import type { ShipClassId } from '../../data/ships';
 import type { Rng } from '../rng';
-import type { SailingShip } from '../sailing/ship';
+import type { SailingShip, StepParams } from '../sailing/ship';
 import type { Wind } from '../sailing/wind';
 import type { ShipCondition } from '../ships/condition';
 
@@ -22,6 +16,24 @@ export interface Volley {
   fired: number;
   /** Seconds until the next ball leaves. */
   untilNextSec: number;
+}
+
+/** What a ship's AI is doing (spec §7). */
+export type AiMode = 'engage' | 'board' | 'withdraw' | 'flee' | 'letGo';
+
+/** The AI's memory for one ship, kept in the combat state (never saved: no mid-combat saves). */
+export interface AiMemory {
+  mode: AiMode;
+  /** Tacking toward a course in the wind's eye; `untilHours` holds combat seconds here. */
+  tack: { readonly side: -1 | 1; readonly untilHours: number } | null;
+  /** When each side first bore on the target, for the reaction delay below difficulty 1. */
+  bearingSinceSec: Record<BroadsideSide, number | null>;
+  /** Closest range reached in the current chase, and when; see AI_CHASE_GIVE_UP_SEC. */
+  chase: { bestRangePx: number; sinceSec: number } | null;
+  /** Gave up a chase: from now on the ship lets the enemy go. */
+  gaveUp: boolean;
+  /** Full-sail speeds at each sampled heading for the condition they were worked out for. */
+  headingSpeeds: { readonly condition: ShipCondition; readonly speedsKn: Float64Array } | null;
 }
 
 /** One ship in the fight. Mutable: `stepCombat` updates it in place. */
@@ -38,8 +50,13 @@ export interface CombatShip {
   reloadSec: Record<BroadsideSide, number>;
   volley: Record<BroadsideSide, Volley | null>;
   struck: boolean;
+  /** Hits taken so far (traders strike after a few, ADR 013). */
+  hitsTaken: number;
   /** Seconds since the ship began to sink, or null while afloat. */
   sinkingSec: number | null;
+  ai: AiMemory;
+  /** The physics parameters last computed for `condition` (a cache; see stepCombat). */
+  physics: { readonly condition: ShipCondition; readonly params: StepParams } | null;
 }
 
 /** Balls in flight, in a fixed-size pool of parallel arrays (no allocation per shot). */
@@ -80,15 +97,17 @@ export type CombatOutcome =
   | { readonly type: 'sunk'; readonly shipIndex: 0 | 1 }
   /** The player came alongside an enemy that had struck: the prize is taken. */
   | { readonly type: 'captured' }
-  /** The hulls met before the enemy struck: a boarding fight follows (spec §9, M7). */
-  | { readonly type: 'boarding' }
+  /** The hulls met before the enemy struck: a boarding fight follows (spec §9). */
+  | { readonly type: 'boarding'; readonly attacker: 0 | 1 }
+  /** A ship got beyond the horizon (ESCAPE_DISTANCE_PX from the other). */
   | { readonly type: 'escaped'; readonly shipIndex: 0 | 1 }
   | { readonly type: 'surrendered' };
 
-/** The whole fight. The player's ship is ships[0], the enemy ships[1]. */
+/**
+ * The whole fight, on open sea without edges (combat px; the ships start around the origin).
+ * The player's ship is ships[0], the enemy ships[1].
+ */
 export interface CombatState {
-  readonly arenaW: number;
-  readonly arenaH: number;
   /** Fixed for the whole fight (spec §6.1). */
   readonly wind: Wind;
   readonly ships: readonly [CombatShip, CombatShip];
@@ -98,6 +117,8 @@ export interface CombatState {
   timeSec: number;
   /** How long the hulls have been touching. */
   contactSec: number;
+  /** When a ball last struck either ship (0 at the start). */
+  lastHitSec: number;
   outcome: CombatOutcome | null;
 }
 
@@ -132,26 +153,34 @@ function combatant(index: 0 | 1, s: CombatantSetup, x: number, y: number): Comba
     reloadSec: { port: 0, starboard: 0 },
     volley: { port: null, starboard: null },
     struck: false,
+    hitsTaken: 0,
     sinkingSec: null,
+    ai: {
+      mode: s.role === 'trader' ? 'flee' : 'engage',
+      tack: null,
+      bearingSinceSec: { port: null, starboard: null },
+      chase: null,
+      gaveUp: false,
+      headingSpeeds: null,
+    },
+    physics: null,
   };
 }
 
 /**
- * Set up a fight in the middle of the arena (spec §6.2). Normally the ships start 220 px
- * apart on the same bearing as on the world map, keeping their headings; after a failed
- * escape they start 150 px apart with the enemy upwind.
+ * Set up a fight around the origin (spec §6.2). Normally the ships start 220 px apart on the
+ * same bearing as on the world map, keeping their headings; after a failed escape they start
+ * 150 px apart with the enemy upwind.
  */
 export function createCombat(setup: CombatSetup): CombatState {
-  const cx = ARENA_W_PX / 2;
-  const cy = ARENA_H_PX / 2;
+  const cx = 0;
+  const cy = 0;
   const distance = setup.escapeFailed ? CAUGHT_START_DISTANCE_PX : START_DISTANCE_PX;
   // Direction from the player to the enemy.
   const angle = setup.escapeFailed ? setup.wind.towardRad + Math.PI : setup.bearingToEnemyRad;
   const dx = (Math.cos(angle) * distance) / 2;
   const dy = (Math.sin(angle) * distance) / 2;
   return {
-    arenaW: ARENA_W_PX,
-    arenaH: ARENA_H_PX,
     wind: setup.wind,
     ships: [
       combatant(0, setup.player, cx - dx, cy - dy),
@@ -161,6 +190,7 @@ export function createCombat(setup: CombatSetup): CombatState {
     rng: setup.rng,
     timeSec: 0,
     contactSec: 0,
+    lastHitSec: 0,
     outcome: null,
   };
 }

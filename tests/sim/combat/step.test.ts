@@ -29,8 +29,9 @@ describe('createCombat', () => {
     expect(Math.atan2(e.ship.y - p.ship.y, e.ship.x - p.ship.x)).toBeCloseTo(1);
     expect(p.ship.headingRad).toBe(0.3);
     expect(e.ship.headingRad).toBe(-2);
-    expect((p.ship.x + e.ship.x) / 2).toBeCloseTo(360);
-    expect((p.ship.y + e.ship.y) / 2).toBeCloseTo(240);
+    // Open sea without edges: the fight is centred on the origin (ADR 013).
+    expect((p.ship.x + e.ship.x) / 2).toBeCloseTo(0);
+    expect((p.ship.y + e.ship.y) / 2).toBeCloseTo(0);
   });
 
   it('after a failed escape starts 150 px apart with the enemy upwind', () => {
@@ -186,7 +187,7 @@ describe('end conditions', () => {
     const s = beamFight();
     s.ships[1].ship = { ...s.ships[1].ship, y: s.ships[0].ship.y + 6 };
     run(s, 0.1);
-    expect(s.outcome).toEqual({ type: 'boarding' });
+    expect(s.outcome).toEqual({ type: 'boarding', attacker: 0 }); // the player boards
   });
 
   it('keeps fast ships apart, but boards after 1.5 s of contact', () => {
@@ -211,11 +212,31 @@ describe('end conditions', () => {
     expect(s.timeSec - t).toBeLessThanOrEqual(1.6);
   });
 
-  it('ends the fight when a ship crosses the arena edge', () => {
+  it('ends the fight when a ship gets over the horizon (450 px away)', () => {
     const s = beamFight();
-    s.ships[1].ship = { ...s.ships[1].ship, x: 719.9, speedKn: 8, sail: 'full' };
+    const p = s.ships[0].ship;
+    // The enemy, sailing east away from the stopped player, just short of the horizon.
+    s.ships[1].ship = {
+      ...s.ships[1].ship,
+      x: p.x + 440,
+      y: p.y,
+      headingRad: 0,
+      speedKn: 8,
+      sail: 'full',
+    };
+    run(s, 0.1);
+    expect(s.outcome).toBeNull();
     run(s, 2);
     expect(s.outcome).toEqual({ type: 'escaped', shipIndex: 1 });
+  });
+
+  it('credits the escape to the ship that is running, not the one left behind', () => {
+    const s = beamFight();
+    const p = s.ships[0].ship;
+    s.ships[0].ship = { ...p, headingRad: Math.PI, speedKn: 8, sail: 'full' }; // player runs west
+    s.ships[1].ship = { ...s.ships[1].ship, x: p.x + 449, y: p.y, speedKn: 0, sail: 'furled' };
+    run(s, 2);
+    expect(s.outcome).toEqual({ type: 'escaped', shipIndex: 0 });
   });
 
   it('lets the player surrender', () => {

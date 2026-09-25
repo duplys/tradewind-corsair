@@ -58,13 +58,15 @@ export function helmInput(npc: NpcShip): ShipInput {
 /**
  * The course toward a bearing with the wind (slice 2 spec §4.4 step 2). When the bearing is
  * within 40° of the wind's eye, sail close-hauled (45° off the eye) on one tack, and change tack
- * when the bearing crosses the wind axis or the tack has lasted 1.5 days.
+ * when the bearing crosses the wind axis or the tack has lasted 1.5 days. Combat passes its own
+ * time (seconds) and limit; `untilHours` is then in combat seconds.
  */
 export function courseFor(
   bearingRad: number,
   tack: NpcTack | null,
   wind: Wind,
   hours: number,
+  maxTackTime: number = TACK_MAX_HOURS,
 ): { headingRad: number; tack: NpcTack | null } {
   if (relativeWindDeg(bearingRad, wind.towardRad) <= TACK_REL_DEG) {
     return { headingRad: bearingRad, tack: null };
@@ -75,13 +77,13 @@ export function courseFor(
   let untilHours: number;
   if (!tack) {
     side = offEye >= 0 ? 1 : -1;
-    untilHours = hours + TACK_MAX_HOURS;
+    untilHours = hours + maxTackTime;
   } else {
     const crossed =
       Math.sign(offEye) === -tack.side && Math.abs(offEye) > TACK_HYSTERESIS_DEG * DEG;
     const expired = hours >= tack.untilHours;
     side = crossed || expired ? (-tack.side as -1 | 1) : tack.side;
-    untilHours = crossed || expired ? hours + TACK_MAX_HOURS : tack.untilHours;
+    untilHours = crossed || expired ? hours + maxTackTime : tack.untilHours;
   }
   return {
     headingRad: normaliseAngle(eye + side * TACK_OFF_WIND_DEG * DEG),

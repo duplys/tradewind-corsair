@@ -2,6 +2,8 @@
 import {
   BASE_RELOAD_S,
   CREW_SAIL_FACTOR_MIN,
+  FLOOD_HULL_PCT,
+  FLOOD_SPEED_FLOOR,
   HANDS_PER_GUN,
   MAX_RELOAD_S,
   RIGGING_SPEED_FLOOR,
@@ -37,10 +39,16 @@ export function crewSailFactor(cls: ShipClass, condition: ShipCondition): number
   return clamp(condition.crew / (SAIL_CREW_SHARE * cls.crewTypical), CREW_SAIL_FACTOR_MIN, 1);
 }
 
-/** maxSpeed × (0.4 + 0.6 × rigging) × crewSailFactor. */
+/** 1 while the hull holds; below 30 % hull the ship takes water, down to 0.7 at 0 %. */
+export function floodingFactor(condition: ShipCondition): number {
+  if (condition.hullPct >= FLOOD_HULL_PCT) return 1;
+  return FLOOD_SPEED_FLOOR + (1 - FLOOD_SPEED_FLOOR) * (condition.hullPct / FLOOD_HULL_PCT);
+}
+
+/** maxSpeed × (0.4 + 0.6 × rigging) × crewSailFactor × flooding. */
 export function effectiveMaxSpeedKn(cls: ShipClass, condition: ShipCondition): number {
   const rigging = RIGGING_SPEED_FLOOR + (1 - RIGGING_SPEED_FLOOR) * (condition.riggingPct / 100);
-  return cls.maxSpeedKn * rigging * crewSailFactor(cls, condition);
+  return cls.maxSpeedKn * rigging * crewSailFactor(cls, condition) * floodingFactor(condition);
 }
 
 /** turnRate × (0.6 + 0.4 × rigging). */

@@ -2,7 +2,7 @@
 import { MAX_BALLS, SINKING_SEC } from '../data/combat';
 import { SHIP_CLASSES } from '../data/ships';
 import type { CombatShip, CombatState } from '../sim/combat/state';
-import { computeCamera, type CameraOffset } from './camera';
+import type { CameraOffset } from './camera';
 import { COMBAT_COLORS, NPC_SAIL_COLORS, SHIP_COLORS } from './palette';
 import { spriteIndex, type ShipSpriteCache } from './sprites/ship';
 
@@ -47,7 +47,7 @@ export class SplashRing {
 
 /**
  * Frame the fight (spec §6.2): centre on the midpoint of the two ships while both fit on
- * screen, otherwise follow the player; always clamped to the arena.
+ * screen, otherwise follow the player. The sea has no edge (ADR 013), so nothing is clamped.
  */
 export function combatCamera(state: CombatState, viewW: number, viewH: number): CameraOffset {
   const [p, e] = state.ships;
@@ -56,7 +56,8 @@ export function combatCamera(state: CombatState, viewW: number, viewH: number): 
     Math.abs(p.ship.y - e.ship.y) + 2 * FRAME_MARGIN_PX <= viewH;
   const fx = fits ? (p.ship.x + e.ship.x) / 2 : p.ship.x;
   const fy = fits ? (p.ship.y + e.ship.y) / 2 : p.ship.y;
-  return computeCamera(fx, fy, viewW, viewH, state.arenaW, state.arenaH);
+  // Open sea: no edges to clamp to.
+  return { x: Math.round(fx - viewW / 2), y: Math.round(fy - viewH / 2) };
 }
 
 function drawShip(
@@ -93,10 +94,8 @@ export function drawCombatScene(
   const { width, height } = ctx.canvas;
   const cam = combatCamera(state, width, height);
   ctx.imageSmoothingEnabled = false;
-  ctx.fillStyle = COMBAT_COLORS.beyond;
-  ctx.fillRect(0, 0, width, height);
   ctx.fillStyle = COMBAT_COLORS.sea;
-  ctx.fillRect(-cam.x, -cam.y, state.arenaW, state.arenaH);
+  ctx.fillRect(0, 0, width, height);
 
   for (const ship of state.ships) drawShip(ctx, cam, sprites, ship);
 

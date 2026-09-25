@@ -7,6 +7,12 @@ export const RIGGING_SPEED_FLOOR = 0.4;
 export const SAIL_CREW_SHARE = 0.25;
 /** Short-handed ships keep at least this fraction of their speed. */
 export const CREW_SAIL_FACTOR_MIN = 0.3;
+/**
+ * Below this hull a ship takes water and slows, down to FLOOD_SPEED_FLOOR of its speed at 0 %
+ * hull (an addition to spec §3.2, ADR 013: without it a sinking ship could outrun anyone).
+ */
+export const FLOOD_HULL_PCT = 30;
+export const FLOOD_SPEED_FLOOR = 0.7;
 /** Turn rate keeps this fraction with the rigging shot away. */
 export const RIGGING_TURN_FLOOR = 0.6;
 /** Hands needed to work one gun. */

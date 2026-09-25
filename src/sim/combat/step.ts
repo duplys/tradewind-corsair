@@ -8,12 +8,14 @@ import {
   BOARDING_REL_SPEED_KN,
   BROADSIDE_SPAN_SHARE,
   COMBAT_SAILING_SCALE,
+  ESCAPE_DISTANCE_PX,
   MAX_BALLS,
   RIPPLE_INTERVAL_SEC,
   SINKING_SEC,
   STRIKE_CREW_ADVANTAGE,
   STRIKE_CREW_SHARE,
   STRIKE_HULL_PCT,
+  TRADER_STRIKE_HITS,
   TRADER_STRIKE_HULL_PCT,
   TRADER_STRIKE_RANGE_PX,
   TRADER_STRIKE_RIGGING_PCT,
@@ -21,12 +23,26 @@ import {
 import { SHIP_CLASSES } from '../../data/ships';
 import { angleDiff } from '../math';
 import { randRange } from '../random';
-import { changeSail, stepShip } from '../sailing/ship';
+import { changeSail, stepShip, type StepParams } from '../sailing/ship';
 import { gunsMannedPerBroadside, performanceOf, reloadTimeSec } from '../ships/condition';
 import { hullsTouch, insideHull, resolveHit, type HitLocation } from './hits';
 import type { BroadsideSide, CombatShip, CombatState } from './state';
 
 const DEG = Math.PI / 180;
+
+/** Physics parameters for a ship, recomputed only when its condition object changes. */
+function paramsFor(ship: CombatShip): StepParams {
+  if (ship.physics?.condition !== ship.condition) {
+    ship.physics = {
+      condition: ship.condition,
+      params: {
+        performance: performanceOf(SHIP_CLASSES[ship.classId], ship.condition),
+        scale: COMBAT_SAILING_SCALE,
+      },
+    };
+  }
+  return ship.physics.params;
+}
 
 /** What one ship wants to do this step. */
 export interface CombatInput {
@@ -155,6 +171,8 @@ function moveBalls(state: CombatState, dt: number, events: CombatEvent[]): void 
       const before = target.condition;
       const hit = resolveHit(cls, before, state.rng, low);
       target.condition = hit.condition;
+      target.hitsTaken++;
+      state.lastHitSec = state.timeSec;
       events.push({
         type: 'hit',
         ship: target.index,
@@ -200,6 +218,12 @@ function hull(ship: CombatShip) {
   return { ship: ship.ship, lengthPx: cls.lengthPx, beamPx: cls.beamPx };
 }
 
+/** Hulls can only touch when the centres are closer than half the two lengths together. */
+function mayTouch(a: CombatShip, b: CombatShip): boolean {
+  const reach = (SHIP_CLASSES[a.classId].lengthPx + SHIP_CLASSES[b.classId].lengthPx) / 2;
+  return distance(a, b) <= reach;
+}
+
 /** Push touching ships apart along the line between their centres, until they just touch. */
 function separate(a: CombatShip, b: CombatShip): void {
   for (let n = 0; n < 60 && hullsTouch(hull(a), hull(b)); n++) {
@@ -218,9 +242,13 @@ function separate(a: CombatShip, b: CombatShip): void {
   }
 }
 
-function outside(state: CombatState, ship: CombatShip): boolean {
-  const { x, y } = ship.ship;
-  return x < 0 || y < 0 || x > state.arenaW || y > state.arenaH;
+/** Speed away from the other ship along the line between them, in knots (negative: closing). */
+function openingSpeedKn(ship: CombatShip, other: CombatShip): number {
+  const d = distance(ship, other) || 1;
+  const ux = (ship.ship.x - other.ship.x) / d;
+  const uy = (ship.ship.y - other.ship.y) / d;
+  const h = ship.ship.headingRad;
+  return ship.ship.speedKn * (Math.cos(h) * ux + Math.sin(h) * uy);
 }
 
 const NO_EVENTS: readonly CombatEvent[] = Object.freeze([]);
@@ -255,12 +283,8 @@ export function stepCombat(
     }
     // A sinking ship lies dead in the water; a struck one drifts with furled sails.
     if (ship.sinkingSec === null) {
-      const cls = SHIP_CLASSES[ship.classId];
       const helm = canFight(ship) ? input : HOLD;
-      ship.ship = stepShip(ship.ship, helm, state.wind, null, dtSec, {
-        performance: performanceOf(cls, ship.condition),
-        scale: COMBAT_SAILING_SCALE,
-      }).ship;
+      ship.ship = stepShip(ship.ship, helm, state.wind, null, dtSec, paramsFor(ship)).ship;
     }
     for (const side of ['port', 'starboard'] as const) {
       ship.reloadSec[side] = Math.max(0, ship.reloadSec[side] - dtSec);
@@ -282,19 +306,39 @@ export function stepCombat(
     if (
       c.crew < STRIKE_CREW_SHARE * enemy.startCrew ||
       (c.hullPct < STRIKE_HULL_PCT && player.condition.crew > STRIKE_CREW_ADVANTAGE * c.crew) ||
-      (trader && c.hullPct < TRADER_STRIKE_HULL_PCT)
+      (trader && (c.hullPct < TRADER_STRIKE_HULL_PCT || enemy.hitsTaken >= TRADER_STRIKE_HITS))
     ) {
       strike(enemy, events);
     }
   }
   if (!state.outcome && player.sinkingSec === null && enemy.sinkingSec === null) {
-    if (hullsTouch(hull(player), hull(enemy))) {
+    if (mayTouch(player, enemy) && hullsTouch(hull(player), hull(enemy))) {
       state.contactSec += dtSec;
       if (
         relativeSpeedKn(player, enemy) < BOARDING_REL_SPEED_KN ||
         state.contactSec > BOARDING_CONTACT_SEC
       ) {
-        state.outcome = enemy.struck ? { type: 'captured' } : { type: 'boarding' };
+        // The ship that set out to board attacks; otherwise the one that ran alongside, i.e.
+        // closing faster (ADR 013).
+        const playerBoards = player.ai.mode === 'board';
+        const enemyBoards = enemy.ai.mode === 'board';
+        const attacker =
+          playerBoards !== enemyBoards
+            ? enemyBoards
+              ? 1
+              : 0
+            : openingSpeedKn(enemy, player) < openingSpeedKn(player, enemy)
+              ? 1
+              : 0;
+        // A merchant boarded by a larger crew strikes rather than fight (ADR 013).
+        if (
+          attacker === 0 &&
+          enemy.role === 'trader' &&
+          player.condition.crew > enemy.condition.crew
+        ) {
+          strike(enemy, events);
+        }
+        state.outcome = enemy.struck ? { type: 'captured' } : { type: 'boarding', attacker };
         player.ship = { ...player.ship, speedKn: 0 };
         enemy.ship = { ...enemy.ship, speedKn: 0 };
       } else {
@@ -304,13 +348,10 @@ export function stepCombat(
       state.contactSec = 0;
     }
   }
-  if (!state.outcome) {
-    for (const ship of state.ships) {
-      if (outside(state, ship)) {
-        state.outcome = { type: 'escaped', shipIndex: ship.index };
-        break;
-      }
-    }
+  // Over the horizon: the ship that is opening the distance faster is the one that got away.
+  if (!state.outcome && distance(player, enemy) > ESCAPE_DISTANCE_PX) {
+    const runner = openingSpeedKn(player, enemy) >= openingSpeedKn(enemy, player) ? 0 : 1;
+    state.outcome = { type: 'escaped', shipIndex: runner };
   }
   if (state.outcome) events.push({ type: 'ended' });
   return events.length > 0 ? events : NO_EVENTS;
