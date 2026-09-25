@@ -16,6 +16,7 @@ import {
   NPC_SPAWN_SPEED_SHARE,
   NPC_TRADER_CREW_FACTOR,
   PIRATE_CLASS_WEIGHTS,
+  PIRATE_LOITER_HOURS,
   ROLE_WEIGHTS,
   TRADER_CLASS_WEIGHTS,
   WARSHIP_CLASS_WEIGHTS,
@@ -185,6 +186,7 @@ export function spawnNpc(ctx: SpawnContext): NpcShip | null {
     intent: 'travel',
     ignorePlayerUntilHours: 0,
     home: { x: at.x, y: at.y },
+    loiterUntilHours: role === 'pirate' ? ctx.hours + PIRATE_LOITER_HOURS : 0,
     targetHeadingRad: headingRad,
     progress: { x: at.x, y: at.y, atHours: ctx.hours },
   };

@@ -79,10 +79,25 @@ describe('world-map sailing', () => {
       nation: 'pirate',
       ship: { x: home.x, y: home.y, headingRad: 0, speedKn: 4, sail: 'full' },
       home,
+      loiterUntilHours: 24 * 10,
     });
-    const result = sailAlone(nav, npc, EASTERLY, 24 * 10);
+    const result = sailAlone(nav, npc, EASTERLY, 24 * 10 - 1);
     expect(result.left).toBeNull();
     expect(Math.hypot(result.npc.ship.x - home.x, result.npc.ship.y - home.y)).toBeLessThan(170);
+  });
+
+  it('sends pirates on their way once they have loitered long enough', () => {
+    const nav = openSea(1000, 800, { x: 900, y: 700 });
+    const home = { x: 400, y: 400 };
+    const npc = makeNpc({
+      role: 'pirate',
+      nation: 'pirate',
+      ship: { x: home.x, y: home.y, headingRad: 0, speedKn: 4, sail: 'full' },
+      home,
+      loiterUntilHours: 24,
+    });
+    const result = sailAlone(nav, npc, EASTERLY, 24 * 30);
+    expect(result.left).toEqual({ leave: 'arrived' });
   });
 
   it('enters port on reaching the destination harbour', () => {

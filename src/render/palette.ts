@@ -78,6 +78,30 @@ export const SHIP_COLORS = {
   mast: '#2b1a0e',
 } as const;
 export const SPRITE_OUTLINE = '#10213a';
+/** A lighter deck block for raised sterncastles (fluyt, galleon). */
+export const STERNCASTLE_COLOR = '#a8763e';
+/** Sail colour by NPC role (slice 2 spec §4.5); the player keeps SHIP_COLORS.sail. */
+export const NPC_SAIL_COLORS = {
+  trader: '#e8dcc0',
+  warship: '#f6f2e6',
+  pirate: '#9a978e',
+} as const;
+/** The pirates' pennant: black with one white pixel (an original emblem). */
+export const PIRATE_PENNANT: readonly [string, string] = ['#141414', '#f2f2f2'];
+/** NPC labels on the label canvas; hostile ships are tinted red. */
+export const NPC_LABEL_HOSTILE = '#e0786a';
+/** Pirate dots on the chart. */
+export const PIRATE_CHART_COLOR = '#1d1d1d';
+
+/** A darker shade of a colour (factor < 1), as '#rrggbb'. */
+export function shadeHex(hex: string, factor: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  const c = (v: number) =>
+    Math.round(v * factor)
+      .toString(16)
+      .padStart(2, '0');
+  return `#${c(r)}${c(g)}${c(b)}`;
+}
 
 export const WAKE_COLOR = '#cfe6ea';
 export const PENNANT_COLOR = '#b3261e';

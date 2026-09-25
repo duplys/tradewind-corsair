@@ -25,8 +25,8 @@ export interface NpcProgress {
 
 /**
  * A ship sailed by the computer on the world map (slice 2 spec §4.1). Plain data: it is saved
- * as it is. `home`, `targetHeadingRad` and `progress` are additions to the spec's model
- * (ADR 010).
+ * as it is. `home`, `loiterUntilHours`, `targetHeadingRad` and `progress` are additions to the
+ * spec's model (ADR 010).
  */
 export interface NpcShip {
   /** Unique within the save. */
@@ -45,6 +45,8 @@ export interface NpcShip {
   readonly ignorePlayerUntilHours: number;
   /** Where the ship appeared. Pirates loiter around it. */
   readonly home: WorldPoint;
+  /** Pirates loiter near home until this game time, then sail off (0 for other roles). */
+  readonly loiterUntilHours: number;
   /** The course the helmsman steers for, set by the AI 10 times per second. */
   readonly targetHeadingRad: number;
   readonly progress: NpcProgress;

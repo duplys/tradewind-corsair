@@ -78,9 +78,14 @@ export function courseFor(
   };
 }
 
-/** Where the NPC is ultimately going: its destination harbour, or (pirates) its loiter point. */
-function finalTarget(npc: NpcShip, nav: Navigator): WorldPoint | null {
-  if (npc.role === 'pirate') return npc.path.at(-1) ?? null;
+/** A pirate still loitering near home (slice 2 spec §4.4 step 4); afterwards it sails off. */
+function loitering(npc: NpcShip, hours: number): boolean {
+  return npc.role === 'pirate' && hours < npc.loiterUntilHours;
+}
+
+/** Where the NPC is ultimately going: its destination harbour, or its loiter point. */
+function finalTarget(npc: NpcShip, nav: Navigator, hours: number): WorldPoint | null {
+  if (loitering(npc, hours)) return npc.path.at(-1) ?? null;
   return nav.port(npc.destPortId)?.harbour ?? null;
 }
 
@@ -99,7 +104,7 @@ export function decideSailing(npc: NpcShip, ctx: SailContext): SailDecision {
   let progress = npc.progress;
   if (hours - progress.atHours >= STUCK_WINDOW_HOURS) {
     if (dist(here, progress) < STUCK_MIN_MOVE_PX) {
-      const target = finalTarget({ ...npc, path }, nav);
+      const target = finalTarget({ ...npc, path }, nav, hours);
       const route = target && nav.pathBetween(here, target);
       if (!route) return { leave: 'lost' };
       path = route.slice(1);
@@ -107,9 +112,15 @@ export function decideSailing(npc: NpcShip, ctx: SailContext): SailDecision {
     progress = { x: here.x, y: here.y, atHours: hours };
   }
 
+  // A pirate done loitering drops its loiter route and heads for its named port.
+  const harbour = nav.port(npc.destPortId)?.harbour;
+  if (npc.role === 'pirate' && !loitering(npc, hours) && harbour) {
+    const last = path.at(-1);
+    if (!last || last.x !== harbour.x || last.y !== harbour.y) path = [];
+  }
+
   if (path.length === 0) {
-    if (npc.role !== 'pirate') {
-      const harbour = nav.port(npc.destPortId)?.harbour;
+    if (!loitering(npc, hours)) {
       if (!harbour) return { leave: 'lost' };
       if (dist(here, harbour) <= NPC_ARRIVAL_PX) return { leave: 'arrived' };
       const route = nav.pathBetween(here, harbour);

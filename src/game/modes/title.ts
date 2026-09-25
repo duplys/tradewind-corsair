@@ -62,6 +62,7 @@ export class TitleMode implements Mode {
       this.timeSec,
       windAt(ship.x, ship.y, START_ELAPSED_HOURS).towardRad,
       null,
+      null,
     );
   }
 

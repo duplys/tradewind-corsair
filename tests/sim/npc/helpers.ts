@@ -39,6 +39,7 @@ export function makeNpc(overrides: Partial<NpcShip> & { classId?: ShipClassId } 
     intent: 'travel',
     ignorePlayerUntilHours: 0,
     home: { x: at.x, y: at.y },
+    loiterUntilHours: 0,
     targetHeadingRad: at.headingRad,
     progress: { x: at.x, y: at.y, atHours: 0 },
     ...overrides,

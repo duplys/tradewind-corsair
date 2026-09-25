@@ -7,9 +7,10 @@ import { browserStorage, SaveStore } from '../persist/saveStore';
 import { LabelLayer } from '../render/labels';
 import { watchReducedMotion } from '../render/motion';
 import type { SeaScene } from '../render/scene';
-import { createShipSprites } from '../render/sprites/ship';
+import { ShipSpriteCache } from '../render/sprites/ship';
 import { View } from '../render/view';
 import { newVoyage } from '../sim/voyage';
+import type { Navigator } from '../sim/npc/navigator';
 import type { Port } from '../sim/world/ports';
 import type { World } from '../sim/world/world';
 import { ChartOverlay } from '../ui/chartOverlay';
@@ -51,16 +52,17 @@ export class Game {
     if (document.visibilityState === 'hidden') this.autoSave();
   };
 
-  constructor(world: World, map: HTMLCanvasElement, ports: readonly Port[]) {
+  constructor(world: World, map: HTMLCanvasElement, ports: readonly Port[], nav: Navigator) {
     const reducedMotion = watchReducedMotion();
     const scene: SeaScene = {
       world,
       map,
       ports,
-      sprites: createShipSprites(),
+      sprites: new ShipSpriteCache(),
       view: this.view,
       labels: this.labels,
       reducedMotion,
+      npcLabels: [],
     };
     this.chart = new ChartOverlay(world, map, ports, reducedMotion, () =>
       this.input.press('close'),
@@ -86,6 +88,7 @@ export class Game {
       new SailingMode({
         scene,
         session,
+        nav,
         held: this.input.held,
         hud: this.hud,
         messages: this.messages,

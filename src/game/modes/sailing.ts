@@ -3,6 +3,7 @@ import { STRINGS } from '../../data/strings';
 import { AUTOSAVE_INTERVAL_SEC } from '../../data/voyage';
 import type { Action, HeldActions } from '../../input/actions';
 import type { TouchControls } from '../../input/touch';
+import { NpcFade } from '../../render/effects/npcFade';
 import { Wake } from '../../render/effects/wake';
 import { drawSeaScene, type SeaScene } from '../../render/scene';
 import { DEV_DAMAGE_STEP } from '../../data/condition';
@@ -11,6 +12,8 @@ import { SHIP_CLASSES } from '../../data/ships';
 import { changeSail, stepShip, type StepParams } from '../../sim/sailing/ship';
 import { damageCondition, performanceOf, type ShipCondition } from '../../sim/ships/condition';
 import { windAt, type Wind } from '../../sim/sailing/wind';
+import type { Navigator } from '../../sim/npc/navigator';
+import { stepNpcWorld } from '../../sim/npc/world';
 import { advanceClock } from '../../sim/time';
 import { dockAt } from '../../sim/voyage';
 import { nearPort, type Port } from '../../sim/world/ports';
@@ -24,6 +27,7 @@ import type { Mode, ModeId, SwitchMode } from './mode';
 export interface SailingDeps {
   readonly scene: SeaScene;
   readonly session: Session;
+  readonly nav: Navigator;
   readonly held: Readonly<HeldActions>;
   readonly hud: Hud;
   readonly messages: MessageLine;
@@ -44,6 +48,7 @@ export class SailingMode implements Mode {
   /** Real seconds spent sailing; drives effects only. */
   private timeSec = 0;
   private readonly wake = new Wake();
+  private readonly fade = new NpcFade();
   private sinceSaveSec = 0;
   private sinceHintSec = 0;
 
@@ -55,6 +60,8 @@ export class SailingMode implements Mode {
   enter(from: ModeId | null): void {
     // The chart only pauses the voyage; anything else means the ship was placed afresh.
     if (from !== 'chart') this.wake.clear();
+    // A voyage just begun or loaded shows its ships at once; later arrivals fade in.
+    if (from === 'title') this.fade.revealAll(this.deps.session.voyage.npcs, this.timeSec);
     if (from === 'title') {
       this.sinceSaveSec = 0;
       this.sinceHintSec = 0;
@@ -111,10 +118,26 @@ export class SailingMode implements Mode {
     for (const event of result.events) {
       if (event.type === 'shoal') messages.show(STRINGS.shoal, this.timeSec);
     }
+    const elapsedHours = advanceClock(voyage.elapsedHours, dtSec);
+    const traffic = stepNpcWorld(
+      voyage,
+      {
+        nav: this.deps.nav,
+        wind,
+        player: result.ship,
+        hoursBefore: voyage.elapsedHours,
+        hoursAfter: elapsedHours,
+      },
+      dtSec,
+    );
+    if (traffic.departed.length > 0) this.fade.departed(traffic.departed, this.timeSec);
     session.voyage = {
       ...voyage,
       ship: result.ship,
-      elapsedHours: advanceClock(voyage.elapsedHours, dtSec),
+      elapsedHours,
+      npcs: traffic.state.npcs,
+      nextNpcId: traffic.state.nextNpcId,
+      rngState: traffic.state.rngState,
     };
     this.timeSec += dtSec;
     this.wake.update(this.timeSec, dtSec, result.ship);
@@ -129,13 +152,11 @@ export class SailingMode implements Mode {
   }
 
   render(): void {
-    drawSeaScene(
-      this.deps.scene,
-      this.deps.session.voyage.ship,
-      this.timeSec,
-      this.wind.towardRad,
-      this.wake,
-    );
+    const { voyage } = this.deps.session;
+    drawSeaScene(this.deps.scene, voyage.ship, this.timeSec, this.wind.towardRad, this.wake, {
+      npcs: voyage.npcs,
+      fade: this.fade,
+    });
     this.deps.hud.update(this.deps.session.voyage, this.wind, this.timeSec);
     this.deps.messages.update(this.timeSec);
   }

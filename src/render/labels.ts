@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import type { Port } from '../sim/world/ports';
 import type { CameraOffset } from './camera';
-import { LABEL_FILL, LABEL_STROKE } from './palette';
+import { LABEL_FILL, LABEL_STROKE, NPC_LABEL_HOSTILE } from './palette';
+
+/** A label under an NPC ship (slice 2 spec §4.5). Positions are world px. */
+export interface NpcLabel {
+  readonly x: number;
+  readonly y: number;
+  readonly text: string;
+  readonly hostile: boolean;
+  readonly alpha: number;
+}
 
 /** Labels sit this many world px above the town. */
 const LABEL_OFFSET_PX = 7;
@@ -18,6 +27,7 @@ export class LabelLayer {
   private lastCamX = NaN;
   private lastCamY = NaN;
   private lastScale = NaN;
+  private hadNpcLabels = false;
 
   constructor() {
     this.canvas.className = 'labels';
@@ -44,8 +54,21 @@ export class LabelLayer {
     this.lastCamX = this.lastCamY = this.lastScale = NaN;
   }
 
-  draw(cam: CameraOffset, scale: number, ports: readonly Port[]): void {
-    if (cam.x === this.lastCamX && cam.y === this.lastCamY && scale === this.lastScale) return;
+  /**
+   * Port names above the towns, and names under nearby NPC ships. Only port labels are cached:
+   * while NPC labels are showing (their ships move) the layer is redrawn every frame.
+   */
+  draw(
+    cam: CameraOffset,
+    scale: number,
+    ports: readonly Port[],
+    npcLabels: readonly NpcLabel[] = [],
+  ): void {
+    const hasNpcLabels = npcLabels.length > 0;
+    const unchanged =
+      cam.x === this.lastCamX && cam.y === this.lastCamY && scale === this.lastScale;
+    if (unchanged && !hasNpcLabels && !this.hadNpcLabels) return;
+    this.hadNpcLabels = hasNpcLabels;
     this.lastCamX = cam.x;
     this.lastCamY = cam.y;
     this.lastScale = scale;
@@ -75,5 +98,17 @@ export class LabelLayer {
       ctx.strokeText(port.def.name, x, y);
       ctx.fillText(port.def.name, x, y);
     }
+
+    ctx.font = `${(10 + 2 * scale) * dpr}px 'IM Fell English', Georgia, serif`;
+    ctx.textBaseline = 'top';
+    for (const label of npcLabels) {
+      const x = (label.x - cam.x) * k;
+      const y = (label.y - cam.y) * k;
+      ctx.globalAlpha = label.alpha;
+      ctx.strokeText(label.text, x, y);
+      ctx.fillStyle = label.hostile ? NPC_LABEL_HOSTILE : LABEL_FILL;
+      ctx.fillText(label.text, x, y);
+    }
+    ctx.globalAlpha = 1;
   }
 }

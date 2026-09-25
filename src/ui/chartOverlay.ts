@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { STRINGS } from '../data/strings';
-import { chartLayout, drawChartShip, drawChartStatic, type ChartLayout } from '../render/chart';
+import { NATIONS } from '../data/nations';
+import { NPC_CHART_RANGE_PX } from '../data/npc';
+import {
+  chartLayout,
+  drawChartShip,
+  drawChartStatic,
+  type ChartDot,
+  type ChartLayout,
+} from '../render/chart';
+import { PIRATE_CHART_COLOR } from '../render/palette';
+import type { NpcShip } from '../sim/npc/npc';
 import type { ReducedMotion } from '../render/motion';
 import type { PlayerShip } from '../sim/sailing/ship';
 import type { Wind } from '../sim/sailing/wind';
@@ -27,6 +37,7 @@ export class ChartOverlay {
   private dpr = 1;
   private ship: PlayerShip | null = null;
   private wind: Wind | null = null;
+  private npcDots: readonly ChartDot[] = [];
 
   constructor(
     private readonly world: World,
@@ -60,9 +71,16 @@ export class ChartOverlay {
     parent.append(this.root);
   }
 
-  show(ship: PlayerShip, wind: Wind, dateText: string): void {
+  show(ship: PlayerShip, wind: Wind, dateText: string, npcs: readonly NpcShip[]): void {
     this.ship = ship;
     this.wind = wind;
+    this.npcDots = npcs
+      .filter((n) => Math.hypot(n.ship.x - ship.x, n.ship.y - ship.y) <= NPC_CHART_RANGE_PX)
+      .map((n) => ({
+        x: n.ship.x,
+        y: n.ship.y,
+        color: n.nation === 'pirate' ? PIRATE_CHART_COLOR : NATIONS[n.nation].color,
+      }));
     this.date.textContent = dateText;
     this.root.hidden = false;
     this.relayout();
@@ -97,6 +115,7 @@ export class ChartOverlay {
       map: this.map,
       ports: this.ports,
       wind: this.wind,
+      npcDots: this.npcDots,
     });
   }
 

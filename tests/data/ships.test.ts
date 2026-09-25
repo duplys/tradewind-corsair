@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { describe, expect, it } from 'vitest';
 import { SHIP_CLASS_IDS, SHIP_CLASSES } from '../../src/data/ships';
-import { SHIP_SPRITE_SIZE } from '../../src/render/sprites/ship';
+import { spriteSizeFor } from '../../src/render/sprites/ship';
 import { polarFactor } from '../../src/sim/sailing/polar';
 
 describe('ship classes', () => {
@@ -10,13 +10,19 @@ describe('ship classes', () => {
     for (const id of SHIP_CLASS_IDS) expect(SHIP_CLASSES[id].id).toBe(id);
   });
 
+  it('keeps the 26 px sprite canvas of slice 1 for the 16 px sloop', () => {
+    expect(spriteSizeFor(SHIP_CLASSES.sloop.worldLengthPx)).toBe(26);
+  });
+
   it('has consistent numbers', () => {
     for (const cls of Object.values(SHIP_CLASSES)) {
       expect(cls.guns % 2, cls.id).toBe(0);
       expect(cls.crewTypical, cls.id).toBeLessThanOrEqual(cls.crewMax);
       expect(cls.accelPerSec, cls.id).toBeGreaterThan(0);
-      // The world sprite plus its 1-px outline fits the sprite canvas.
-      expect(cls.worldLengthPx + 2, cls.id).toBeLessThanOrEqual(SHIP_SPRITE_SIZE);
+      // Half the hull, the 3 px bowsprit and the outline fit the sprite canvas at any heading.
+      expect(cls.worldLengthPx / 2 + 3 + 1, cls.id).toBeLessThanOrEqual(
+        spriteSizeFor(cls.worldLengthPx) / 2,
+      );
     }
   });
 

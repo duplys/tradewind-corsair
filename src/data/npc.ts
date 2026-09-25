@@ -19,6 +19,8 @@ export const SNAP_MAX_CELLS = 6;
 // ---- Spawning and despawning (§4.3) ----
 export const NPC_TARGET_NEARBY = 6;
 export const NPC_NEARBY_RADIUS_PX = 250;
+/** The chart shows NPCs this close to the player (§4.5). */
+export const NPC_CHART_RANGE_PX = 250;
 /** Never more NPCs than this on the map at once (performance budget, §12). */
 export const NPC_MAX = 10;
 export const NPC_SPAWN_CHECK_HOURS = 2;
@@ -131,3 +133,8 @@ export const TACK_HYSTERESIS_DEG = 3;
 export const STUCK_WINDOW_HOURS = 12;
 export const STUCK_MIN_MOVE_PX = 3;
 export const PIRATE_LOITER_RADIUS_PX = 150;
+/**
+ * Pirates loiter this long, then sail off toward their named port and leave the map, so they
+ * do not pile up around a player who stays in one area (ADR 010).
+ */
+export const PIRATE_LOITER_HOURS = 96;

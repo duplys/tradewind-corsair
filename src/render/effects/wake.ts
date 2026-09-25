@@ -67,20 +67,30 @@ export class Wake {
   }
 }
 
-/** A 2×1 px red pennant at the stern that flickers (spec §8.3 step 5). */
+/**
+ * A 2×1 px pennant at the stern that flickers (slice 1 spec §8.3 step 5): the player's is red,
+ * an NPC's is in its nation's colours (slice 2 spec §4.5). `colors` are the pixel at the
+ * stern and the one streaming aft.
+ */
 export function drawPennant(
   ctx: CanvasRenderingContext2D,
   cam: CameraOffset,
   ship: WakeSource,
+  sternOffsetPx: number,
+  colors: readonly [string, string],
   nowSec: number,
 ): void {
   const cos = Math.cos(ship.headingRad);
   const sin = Math.sin(ship.headingRad);
-  const sx = Math.round(ship.x - cos * (STERN_OFFSET_PX - 1)) - cam.x;
-  const sy = Math.round(ship.y - sin * (STERN_OFFSET_PX - 1)) - cam.y;
+  const sx = Math.round(ship.x - cos * (sternOffsetPx - 1)) - cam.x;
+  const sy = Math.round(ship.y - sin * (sternOffsetPx - 1)) - cam.y;
   // The fly streams aft, flicking one pixel to the side every other tick.
   const side = Math.floor(nowSec * PENNANT_FLICKS_PER_SEC) % 2;
-  ctx.fillStyle = PENNANT_COLOR;
+  ctx.fillStyle = colors[0];
   ctx.fillRect(sx, sy, 1, 1);
+  ctx.fillStyle = colors[1];
   ctx.fillRect(sx - Math.round(cos + side * sin), sy - Math.round(sin - side * cos), 1, 1);
 }
+
+/** The player's pennant colours. */
+export const PLAYER_PENNANT: readonly [string, string] = [PENNANT_COLOR, PENNANT_COLOR];

@@ -38,10 +38,18 @@ export function chartLayout(
   return { scale, ox: (canvasW - mapW) / 2, oy: (canvasH - mapH) / 2, mapW, mapH };
 }
 
+/** A ship shown on the chart as a small dot (slice 2 spec §4.5). World px. */
+export interface ChartDot {
+  readonly x: number;
+  readonly y: number;
+  readonly color: string;
+}
+
 export interface ChartStatic {
   readonly map: HTMLCanvasElement;
   readonly ports: readonly Port[];
   readonly wind: Wind;
+  readonly npcDots: readonly ChartDot[];
 }
 
 function periodFont(sizePx: number, smallCaps = false): string {
@@ -122,6 +130,17 @@ export function drawChartStatic(
     ctx.strokeText(port.def.name, x + 6 * dpr, y);
     ctx.fillStyle = CHART_COLORS.ink;
     ctx.fillText(port.def.name, x + 6 * dpr, y);
+  }
+
+  // Other ships nearby: small dots in their colours, without names.
+  ctx.strokeStyle = CHART_COLORS.ink;
+  ctx.lineWidth = dpr;
+  for (const dot of data.npcDots) {
+    ctx.fillStyle = dot.color;
+    ctx.beginPath();
+    ctx.arc(ox + dot.x * scale, oy + dot.y * scale, 2.5 * dpr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
   }
 
   drawWindRose(ctx, ox + mapW - 34 * dpr, oy + 34 * dpr, 24 * dpr, dpr, data.wind);

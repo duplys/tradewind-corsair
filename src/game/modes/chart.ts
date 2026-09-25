@@ -22,11 +22,12 @@ export class ChartMode implements Mode {
   constructor(private readonly deps: ChartDeps) {}
 
   enter(): void {
-    const { ship, elapsedHours } = this.deps.session.voyage;
+    const { ship, elapsedHours, npcs } = this.deps.session.voyage;
     this.deps.chart.show(
       ship,
       windAt(ship.x, ship.y, elapsedHours),
       formatDate(elapsedHours, STRINGS.months),
+      npcs,
     );
   }
 

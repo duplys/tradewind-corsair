@@ -5,6 +5,7 @@ import { PORTS } from './data/ports';
 import { STRINGS } from './data/strings';
 import { Game } from './game/game';
 import { createMapCanvas } from './render/map/buildMap';
+import { Navigator } from './sim/npc/navigator';
 import { derivePorts } from './sim/world/ports';
 import { buildWorld } from './sim/world/world';
 import { waitForFonts } from './ui/fonts';
@@ -30,7 +31,12 @@ async function boot(): Promise<void> {
   const world = buildWorld();
   const ports = derivePorts(world, PORTS);
   const map = createMapCanvas(world, ports, MAP_SEED);
-  const game = new Game(world, map, ports);
+  const navStarted = performance.now();
+  const nav = new Navigator(world, ports);
+  if (import.meta.env.DEV) {
+    console.info(`Navigation grid built in ${Math.round(performance.now() - navStarted)} ms`);
+  }
+  const game = new Game(world, map, ports, nav);
   loading.remove();
   game.attach(root);
   game.start();

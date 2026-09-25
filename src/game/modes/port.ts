@@ -73,13 +73,14 @@ export class PortMode implements Mode {
   }
 
   render(): void {
-    const { ship, elapsedHours } = this.deps.session.voyage;
+    const { ship, elapsedHours, npcs } = this.deps.session.voyage;
     drawSeaScene(
       this.deps.scene,
       ship,
       this.timeSec,
       windAt(ship.x, ship.y, elapsedHours).towardRad,
       null,
+      { npcs, fade: null },
     );
   }
 

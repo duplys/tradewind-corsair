@@ -87,6 +87,11 @@ export const STRINGS = {
     setSail: 'Set sail',
     flagOf: (nationName: string) => `Flag of ${nationName}`,
   },
+  npc: {
+    /** "Spanish fluyt", "Pirate brigantine". */
+    label: (adjective: string, className: string) => `${adjective} ${className}`,
+    pirate: 'Pirate',
+  },
   shipwright: {
     heading: 'Shipwright',
     hull: (pct: number) => `Hull ${pct} %`,
