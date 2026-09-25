@@ -2,6 +2,8 @@
 import type { SaveStore } from '../../persist/saveStore';
 import { drawSeaScene, type SeaScene } from '../../render/scene';
 import type { PlayerShip } from '../../sim/sailing/ship';
+import { windAt } from '../../sim/sailing/wind';
+import { START_ELAPSED_HOURS } from '../../sim/time';
 import { newVoyage, type Voyage } from '../../sim/voyage';
 import type { TitleScreen } from '../../ui/titleScreen';
 import type { Session } from '../session';
@@ -52,7 +54,14 @@ export class TitleMode implements Mode {
   }
 
   render(): void {
-    drawSeaScene(this.deps.scene, this.previewShip, this.timeSec, null);
+    const ship = this.previewShip;
+    drawSeaScene(
+      this.deps.scene,
+      ship,
+      this.timeSec,
+      windAt(ship.x, ship.y, START_ELAPSED_HOURS).towardRad,
+      null,
+    );
   }
 
   private continueVoyage(): void {

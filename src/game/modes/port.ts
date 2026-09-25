@@ -2,6 +2,7 @@
 import { STRINGS } from '../../data/strings';
 import type { Action } from '../../input/actions';
 import { drawSeaScene, type SeaScene } from '../../render/scene';
+import { windAt } from '../../sim/sailing/wind';
 import { formatDate } from '../../sim/time';
 import { setSailFrom } from '../../sim/voyage';
 import { findPort, type Port } from '../../sim/world/ports';
@@ -49,7 +50,14 @@ export class PortMode implements Mode {
   }
 
   render(): void {
-    drawSeaScene(this.deps.scene, this.deps.session.voyage.ship, this.timeSec, null);
+    const { ship, elapsedHours } = this.deps.session.voyage;
+    drawSeaScene(
+      this.deps.scene,
+      ship,
+      this.timeSec,
+      windAt(ship.x, ship.y, elapsedHours).towardRad,
+      null,
+    );
   }
 
   private setSail(): void {

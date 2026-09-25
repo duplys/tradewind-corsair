@@ -15,7 +15,9 @@ export class LabelLayer {
   readonly canvas = document.createElement('canvas');
   private readonly ctx: CanvasRenderingContext2D;
   private dpr = 1;
-  private lastKey = '';
+  private lastCamX = NaN;
+  private lastCamY = NaN;
+  private lastScale = NaN;
 
   constructor() {
     this.canvas.className = 'labels';
@@ -30,18 +32,23 @@ export class LabelLayer {
     this.canvas.height = Math.round(cssH * dpr);
     this.canvas.style.width = `${cssW}px`;
     this.canvas.style.height = `${cssH}px`;
-    this.lastKey = '';
+    this.invalidate();
   }
 
   clear(): void {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.lastKey = '';
+    this.invalidate();
+  }
+
+  private invalidate(): void {
+    this.lastCamX = this.lastCamY = this.lastScale = NaN;
   }
 
   draw(cam: CameraOffset, scale: number, ports: readonly Port[]): void {
-    const key = `${cam.x},${cam.y},${scale}`;
-    if (key === this.lastKey) return;
-    this.lastKey = key;
+    if (cam.x === this.lastCamX && cam.y === this.lastCamY && scale === this.lastScale) return;
+    this.lastCamX = cam.x;
+    this.lastCamY = cam.y;
+    this.lastScale = scale;
 
     const { ctx, dpr } = this;
     const k = scale * dpr;

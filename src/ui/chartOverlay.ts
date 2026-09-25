@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { STRINGS } from '../data/strings';
 import { chartLayout, drawChartShip, drawChartStatic, type ChartLayout } from '../render/chart';
+import type { ReducedMotion } from '../render/motion';
 import type { PlayerShip } from '../sim/sailing/ship';
 import type { Wind } from '../sim/sailing/wind';
 import type { Port } from '../sim/world/ports';
@@ -31,6 +32,7 @@ export class ChartOverlay {
     private readonly world: World,
     private readonly map: HTMLCanvasElement,
     private readonly ports: readonly Port[],
+    private readonly reducedMotion: ReducedMotion,
     onClose: () => void,
   ) {
     this.root.hidden = true;
@@ -102,6 +104,8 @@ export class ChartOverlay {
     if (!this.layout || !this.ship) return;
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.drawImage(this.staticLayer, 0, 0);
-    drawChartShip(this.ctx, this.layout, this.dpr, this.ship, timeSec);
+    // The marker blinks to draw the eye; under reduced motion it stays lit.
+    const blinkTime = this.reducedMotion() ? 0 : timeSec;
+    drawChartShip(this.ctx, this.layout, this.dpr, this.ship, blinkTime);
   }
 }

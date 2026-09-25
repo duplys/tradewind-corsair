@@ -109,7 +109,13 @@ export class SailingMode implements Mode {
   }
 
   render(): void {
-    drawSeaScene(this.deps.scene, this.deps.session.voyage.ship, this.timeSec, this.wake);
+    drawSeaScene(
+      this.deps.scene,
+      this.deps.session.voyage.ship,
+      this.timeSec,
+      this.hudState.wind.towardRad,
+      this.wake,
+    );
     this.deps.hud.update(this.hudState, this.timeSec);
     this.deps.messages.update(this.timeSec);
   }

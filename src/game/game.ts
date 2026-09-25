@@ -5,6 +5,7 @@ import { KeyboardInput } from '../input/keyboard';
 import { TouchControls, wantsTouchControls } from '../input/touch';
 import { browserStorage, SaveStore } from '../persist/saveStore';
 import { LabelLayer } from '../render/labels';
+import { watchReducedMotion } from '../render/motion';
 import type { SeaScene } from '../render/scene';
 import { createShipSprites } from '../render/sprites/ship';
 import { View } from '../render/view';
@@ -49,6 +50,7 @@ export class Game {
   };
 
   constructor(world: World, map: HTMLCanvasElement, ports: readonly Port[]) {
+    const reducedMotion = watchReducedMotion();
     const scene: SeaScene = {
       world,
       map,
@@ -56,8 +58,11 @@ export class Game {
       sprites: createShipSprites(),
       view: this.view,
       labels: this.labels,
+      reducedMotion,
     };
-    this.chart = new ChartOverlay(world, map, ports, () => this.input.press('close'));
+    this.chart = new ChartOverlay(world, map, ports, reducedMotion, () =>
+      this.input.press('close'),
+    );
     this.store = new SaveStore(browserStorage(), {
       world,
       portIds: new Set(PORTS.map((p) => p.id)),

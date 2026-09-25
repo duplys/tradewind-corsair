@@ -118,3 +118,6 @@ export const CHART_COLORS = {
   roseFill: 'rgba(234, 220, 180, 0.85)',
   wind: '#2f6f9a',
 } as const;
+
+/** Sea sparkle highlight (spec §8.3 step 2). */
+export const SPARKLE_COLOR = '#6fa8c8';
