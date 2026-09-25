@@ -14,7 +14,8 @@ import type { Navigator } from '../sim/npc/navigator';
 import type { Port } from '../sim/world/ports';
 import type { World } from '../sim/world/world';
 import { ChartOverlay } from '../ui/chartOverlay';
-import { CombatPlaceholder } from '../ui/combatPlaceholder';
+import { CombatResultCard } from '../ui/combatResult';
+import { CombatStatus } from '../ui/combatStatus';
 import { ContextPrompt } from '../ui/contextPrompt';
 import { EncounterDialog } from '../ui/encounterDialog';
 import { Hud } from '../ui/hud';
@@ -44,7 +45,8 @@ export class Game {
   private readonly messages = new MessageLine();
   private readonly prompt = new ContextPrompt(() => this.input.press('confirm'));
   private readonly encounterDialog = new EncounterDialog();
-  private readonly combatPlaceholder = new CombatPlaceholder();
+  private readonly combatResult = new CombatResultCard();
+  private readonly combatStatus = new CombatStatus();
   private readonly portScreen = new PortScreen(() => this.input.press('confirm'));
   private readonly shipwright = new ShipwrightPanel();
   private readonly titleScreen = new TitleScreen();
@@ -113,7 +115,17 @@ export class Game {
       }),
       new ChartMode({ session, chart: this.chart, switchMode }),
       new EncounterMode({ scene, session, dialog: this.encounterDialog, switchMode, save }),
-      new CombatMode({ session, placeholder: this.combatPlaceholder, switchMode }),
+      new CombatMode({
+        scene,
+        session,
+        held: this.input.held,
+        status: this.combatStatus,
+        result: this.combatResult,
+        messages: this.messages,
+        touch: this.touch,
+        switchMode,
+        save,
+      }),
     ]);
     this.loop = createLoop({
       step: (dtSec) => this.step(dtSec),
@@ -132,7 +144,8 @@ export class Game {
     this.shipwright.attach(root);
     this.chart.attach(root);
     this.encounterDialog.attach(root);
-    this.combatPlaceholder.attach(root);
+    this.combatStatus.attach(root);
+    this.combatResult.attach(root);
     this.titleScreen.attach(root);
     this.resize();
     this.keyboard.attach();

@@ -9,6 +9,9 @@ export type Action =
   | 'confirm'
   | 'chart'
   | 'close'
+  /** Combat: fire the port or starboard broadside (Q, E). */
+  | 'firePort'
+  | 'fireStarboard'
   /** Dev builds only (K): damage the player's ship, to test the HUD and repairs. */
   | 'debugDamage';
 
@@ -24,6 +27,8 @@ export function createHeldActions(): HeldActions {
     confirm: false,
     chart: false,
     close: false,
+    firePort: false,
+    fireStarboard: false,
     debugDamage: false,
   };
 }

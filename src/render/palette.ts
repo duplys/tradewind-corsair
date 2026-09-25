@@ -145,3 +145,12 @@ export const CHART_COLORS = {
 
 /** Sea sparkle highlight (spec §8.3 step 2). */
 export const SPARKLE_COLOR = '#6fa8c8';
+
+/** Combat scene (interim look until M6's effects): open sea, the dark beyond the arena, shot. */
+export const COMBAT_COLORS = {
+  sea: '#173f69',
+  beyond: '#0f2c4c',
+  ball: '#1a1410',
+  ballTrail: '#6b5a48',
+  splash: '#e8f2f4',
+} as const;

@@ -116,10 +116,32 @@ export const STRINGS = {
     caught: "They're too quick for us!",
   },
   combat: {
-    placeholderHeading: 'Battle stations!',
-    placeholderText:
-      'Ship combat arrives in the next milestone. For now the two ships part company.',
-    breakOff: 'Break off',
+    continue: 'Continue',
+    // Messages (slice 2 spec §10.3).
+    mastDamaged: 'Her mainmast is damaged!',
+    striking: "She's striking her colours!",
+    takingWater: "We're taking water!",
+    grapples: 'Grapples ready — close to board!',
+    // Results. The notes mark what later milestones will replace (ADR 012).
+    enemySunk: 'She went down with all hands.',
+    enemySunkNote: 'No plunder.',
+    playerSunk: 'Your ship is lost.',
+    playerSunkNote: 'Defeat comes in a later milestone: for now your battered ship limps on.',
+    captured: 'She is yours!',
+    capturedNote: 'The prize screen comes in a later milestone.',
+    boarding: 'Boarding!',
+    boardingNote: 'Boarding comes in a later milestone: for now the ships part company.',
+    enemyEscaped: 'She got away.',
+    playerEscaped: 'You slipped away.',
+    // Temporary status panel until the combat HUD (M6).
+    ready: 'ready',
+    reloading: (seconds: string) => `${seconds} s`,
+    statusLine: (who: string, hull: number, rigging: number, crew: number) =>
+      `${who} · hull ${hull} % · rigging ${rigging} % · crew ${crew}`,
+    gunsLine: (port: string, starboard: string) => `Port ${port} · Starboard ${starboard}`,
+    range: (yards: number) => `Range ${yards} yds`,
+    struckFlag: 'colours struck',
+    keys: 'Q port · E starboard · Space the side that bears',
   },
   shipwright: {
     heading: 'Shipwright',

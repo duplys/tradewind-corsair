@@ -586,6 +586,28 @@ canvas.labels {
   left: 0;
 }
 
+/* ---- Combat (interim status panel until the combat HUD, M6) ------------ */
+
+.combat-status {
+  position: absolute;
+  top: calc(var(--safe-top) + var(--edge));
+  left: calc(var(--safe-left) + var(--edge));
+  right: calc(var(--safe-right) + var(--edge));
+  max-width: 34rem;
+  padding: 6px 10px;
+  font-family: var(--font-numerals);
+  font-size: 17px;
+  line-height: 1.15;
+  pointer-events: none;
+}
+
+.combat-keys {
+  margin-top: 4px;
+  font-family: var(--font-period);
+  font-size: 13px;
+  opacity: 0.8;
+}
+
 /* ---- Encounter dialog -------------------------------------------------- */
 
 .encounter-screen {

@@ -17,6 +17,10 @@ function actionForKey(e: KeyboardEvent): Action | null {
     case 'ArrowDown':
     case 'KeyS':
       return 'reef';
+    case 'KeyQ':
+      return 'firePort';
+    case 'KeyE':
+      return 'fireStarboard';
     case 'Enter':
     case 'NumpadEnter':
     case 'Space':

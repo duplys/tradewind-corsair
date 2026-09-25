@@ -31,6 +31,3 @@ export const ESCAPE_MIN = 0.1;
 export const ESCAPE_MAX = 0.9;
 /** Headings are sampled this far apart when finding the best speed made good. */
 export const ESCAPE_SAMPLE_DEG = 5;
-
-/** Until ship combat exists (M4), a fight ends at once and the enemy keeps away this long. */
-export const PLACEHOLDER_FIGHT_IGNORE_HOURS = 24;
