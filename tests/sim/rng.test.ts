@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { describe, expect, it } from 'vitest';
-import { createRng, hash2 } from '../../src/sim/rng';
+import { createRng, hash2, isRngState, restoreRng } from '../../src/sim/rng';
 import { fractalNoise, valueNoise } from '../../src/sim/noise';
 
 describe('createRng', () => {
@@ -44,5 +44,96 @@ describe('hash2 and noise', () => {
       expect(v).toBeGreaterThanOrEqual(0);
       expect(v).toBeLessThan(1);
     }
+  });
+});
+
+describe('RNG state (save and restore)', () => {
+  const draw = (rng: () => number, n: number) => Array.from({ length: n }, () => rng());
+
+  it('restores mid-sequence from its state', () => {
+    const rng = createRng(1660);
+    draw(rng, 17);
+    const saved = rng.state();
+    const expected = draw(rng, 50);
+    expect(draw(restoreRng(saved), 50)).toEqual(expected);
+  });
+
+  it('survives a JSON round-trip', () => {
+    const rng = createRng(7);
+    draw(rng, 3);
+    const json = JSON.stringify({ rngState: rng.state() });
+    const parsed = JSON.parse(json) as { rngState: unknown };
+    expect(isRngState(parsed.rngState)).toBe(true);
+    expect(draw(restoreRng(parsed.rngState as number), 20)).toEqual(draw(rng, 20));
+  });
+
+  it('keeps a valid state through many draws', () => {
+    const rng = createRng(0xffffffff);
+    for (let i = 0; i < 1000; i++) rng();
+    expect(isRngState(rng.state())).toBe(true);
+  });
+
+  it('recognises valid states', () => {
+    expect(isRngState(0)).toBe(true);
+    expect(isRngState(0xffffffff)).toBe(true);
+    expect(isRngState(-1)).toBe(false);
+    expect(isRngState(2 ** 32)).toBe(false);
+    expect(isRngState(1.5)).toBe(false);
+    expect(isRngState('1')).toBe(false);
+    expect(isRngState(NaN)).toBe(false);
+  });
+});
+
+describe('RNG fork', () => {
+  const draw = (rng: () => number, n: number) => Array.from({ length: n }, () => rng());
+
+  it('is deterministic for the same parent state and label', () => {
+    expect(draw(createRng(99).fork('combat'), 30)).toEqual(draw(createRng(99).fork('combat'), 30));
+    const a = createRng(99);
+    draw(a, 5);
+    expect(draw(restoreRng(a.state()).fork('npc'), 10)).toEqual(draw(a.fork('npc'), 10));
+  });
+
+  it("does not let the child's draws affect the parent", () => {
+    const withBusyChild = createRng(5);
+    const child = withBusyChild.fork('combat');
+    draw(child, 1000);
+    const withIdleChild = createRng(5);
+    withIdleChild.fork('combat');
+    expect(draw(withBusyChild, 20)).toEqual(draw(withIdleChild, 20));
+  });
+
+  it('consumes exactly one draw from the parent', () => {
+    const forked = createRng(5);
+    forked.fork('x');
+    const plain = createRng(5);
+    plain();
+    expect(forked.state()).toBe(plain.state());
+  });
+
+  it('gives different streams for different labels and for repeated forks', () => {
+    const labels = draw(createRng(3).fork('combat'), 10);
+    expect(draw(createRng(3).fork('spawn'), 10)).not.toEqual(labels);
+    const parent = createRng(3);
+    const first = draw(parent.fork('combat'), 10);
+    const second = draw(parent.fork('combat'), 10);
+    expect(second).not.toEqual(first);
+  });
+
+  it("differs from the parent's own continuation", () => {
+    const parent = createRng(11);
+    const child = parent.fork('combat');
+    expect(draw(child, 10)).not.toEqual(draw(parent, 10));
+  });
+
+  it('produces values in [0, 1) with a plausible mean', () => {
+    const values = draw(createRng(1).fork('stats'), 5000);
+    for (const v of values) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThan(1);
+    }
+    const mean = values.reduce((s, v) => s + v, 0) / values.length;
+    expect(mean).toBeGreaterThan(0.48);
+    expect(mean).toBeLessThan(0.52);
   });
 });
