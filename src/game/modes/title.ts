@@ -69,6 +69,7 @@ export class TitleMode implements Mode {
   private continueVoyage(): void {
     if (!this.saved) return;
     this.deps.session.voyage = this.saved;
+    this.deps.session.encounter = null;
     this.deps.switchMode('sailing');
   }
 

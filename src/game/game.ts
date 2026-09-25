@@ -14,7 +14,9 @@ import type { Navigator } from '../sim/npc/navigator';
 import type { Port } from '../sim/world/ports';
 import type { World } from '../sim/world/world';
 import { ChartOverlay } from '../ui/chartOverlay';
-import { DockPrompt } from '../ui/dockPrompt';
+import { CombatPlaceholder } from '../ui/combatPlaceholder';
+import { ContextPrompt } from '../ui/contextPrompt';
+import { EncounterDialog } from '../ui/encounterDialog';
 import { Hud } from '../ui/hud';
 import { MessageLine } from '../ui/messageLine';
 import { PortScreen } from '../ui/portScreen';
@@ -23,6 +25,8 @@ import { TitleScreen } from '../ui/titleScreen';
 import { createLoop, type Loop } from './loop';
 import { ModeMachine } from './modeMachine';
 import { ChartMode } from './modes/chart';
+import { CombatMode } from './modes/combat';
+import { EncounterMode } from './modes/encounter';
 import type { ModeId } from './modes/mode';
 import { PortMode } from './modes/port';
 import { SailingMode } from './modes/sailing';
@@ -38,7 +42,9 @@ export class Game {
   private readonly touch = wantsTouchControls() ? new TouchControls(this.input) : null;
   private readonly hud = new Hud(() => this.input.press('chart'));
   private readonly messages = new MessageLine();
-  private readonly dockPrompt = new DockPrompt(() => this.input.press('confirm'));
+  private readonly prompt = new ContextPrompt(() => this.input.press('confirm'));
+  private readonly encounterDialog = new EncounterDialog();
+  private readonly combatPlaceholder = new CombatPlaceholder();
   private readonly portScreen = new PortScreen(() => this.input.press('confirm'));
   private readonly shipwright = new ShipwrightPanel();
   private readonly titleScreen = new TitleScreen();
@@ -72,7 +78,7 @@ export class Game {
       portIds: new Set(PORTS.map((p) => p.id)),
       ...(import.meta.env.DEV ? { warn: (message: string) => console.warn(message) } : {}),
     });
-    this.session = { voyage: newVoyage(world, ports) };
+    this.session = { voyage: newVoyage(world, ports), encounter: null, notice: null };
     const session = this.session;
     const switchMode = (id: ModeId): void => this.modes.switchTo(id);
     const save = (): void => this.autoSave();
@@ -92,7 +98,7 @@ export class Game {
         held: this.input.held,
         hud: this.hud,
         messages: this.messages,
-        dockPrompt: this.dockPrompt,
+        prompt: this.prompt,
         touch: this.touch,
         switchMode,
         save,
@@ -106,6 +112,8 @@ export class Game {
         save,
       }),
       new ChartMode({ session, chart: this.chart, switchMode }),
+      new EncounterMode({ scene, session, dialog: this.encounterDialog, switchMode, save }),
+      new CombatMode({ session, placeholder: this.combatPlaceholder, switchMode }),
     ]);
     this.loop = createLoop({
       step: (dtSec) => this.step(dtSec),
@@ -118,11 +126,13 @@ export class Game {
     root.append(this.view.canvas, this.labels.canvas);
     this.hud.attach(root);
     this.messages.attach(root);
-    this.dockPrompt.attach(root);
+    this.prompt.attach(root);
     this.touch?.attach(root);
     this.portScreen.attach(root);
     this.shipwright.attach(root);
     this.chart.attach(root);
+    this.encounterDialog.attach(root);
+    this.combatPlaceholder.attach(root);
     this.titleScreen.attach(root);
     this.resize();
     this.keyboard.attach();
@@ -136,9 +146,13 @@ export class Game {
     this.loop.start();
   }
 
-  /** Save the voyage, except on the title screen where no voyage is under way. */
+  /**
+   * Save the voyage, except on the title screen (no voyage under way) and during combat (the
+   * save from just before the encounter must stand, slice 2 spec §11).
+   */
   private autoSave(): void {
-    if (this.modes.current && this.modes.current.id !== 'title') {
+    const mode = this.modes.current?.id;
+    if (mode && mode !== 'title' && mode !== 'combat') {
       this.store.save(this.session.voyage);
     }
   }

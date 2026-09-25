@@ -2,7 +2,7 @@
 import type { Action } from '../../input/actions';
 
 /** Every mode the game can be in. Grows with each slice (combat, duel, ...). */
-export type ModeId = 'title' | 'sailing' | 'port' | 'chart';
+export type ModeId = 'title' | 'sailing' | 'port' | 'chart' | 'encounter' | 'combat';
 
 /** A mode owns its update, render and overlay lifecycle. A mode that does not step is paused. */
 export interface Mode {

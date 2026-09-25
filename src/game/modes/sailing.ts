@@ -16,8 +16,11 @@ import type { Navigator } from '../../sim/npc/navigator';
 import { stepNpcWorld } from '../../sim/npc/world';
 import { advanceClock } from '../../sim/time';
 import { dockAt } from '../../sim/voyage';
+import { caughtBy, hailableNpc } from '../../sim/npc/encounter';
+import type { NpcShip } from '../../sim/npc/npc';
 import { nearPort, type Port } from '../../sim/world/ports';
-import type { DockPrompt } from '../../ui/dockPrompt';
+import type { ContextPrompt } from '../../ui/contextPrompt';
+import { theShip } from '../../ui/encounterText';
 import type { Hud } from '../../ui/hud';
 import type { MessageLine } from '../../ui/messageLine';
 import { hintDue } from '../hints';
@@ -31,7 +34,7 @@ export interface SailingDeps {
   readonly held: Readonly<HeldActions>;
   readonly hud: Hud;
   readonly messages: MessageLine;
-  readonly dockPrompt: DockPrompt;
+  readonly prompt: ContextPrompt;
   readonly touch: TouchControls | null;
   readonly switchMode: SwitchMode;
   /** Write the current voyage to the save slot. */
@@ -45,6 +48,7 @@ export class SailingMode implements Mode {
   private stepParams: StepParams | null = null;
   private stepParamsFor: ShipCondition | null = null;
   private near: Port | null = null;
+  private hail: NpcShip | null = null;
   /** Real seconds spent sailing; drives effects only. */
   private timeSec = 0;
   private readonly wake = new Wake();
@@ -68,8 +72,13 @@ export class SailingMode implements Mode {
     }
     const { ship, elapsedHours } = this.deps.session.voyage;
     this.wind = windAt(ship.x, ship.y, elapsedHours);
-    this.updateNearPort();
+    this.updatePrompt();
     this.deps.hud.show();
+    const { session } = this.deps;
+    if (session.notice) {
+      this.deps.messages.show(session.notice, this.timeSec);
+      session.notice = null;
+    }
     this.deps.touch?.show();
   }
 
@@ -77,7 +86,7 @@ export class SailingMode implements Mode {
     this.deps.hud.hide();
     this.deps.touch?.hide();
     this.deps.messages.hide();
-    this.deps.dockPrompt.setPort(null);
+    this.deps.prompt.hide();
   }
 
   handleAction(action: Action): void {
@@ -87,6 +96,9 @@ export class SailingMode implements Mode {
       session.voyage = { ...session.voyage, ship: { ...ship, sail: changeSail(ship.sail, 1) } };
     } else if (action === 'reef') {
       session.voyage = { ...session.voyage, ship: { ...ship, sail: changeSail(ship.sail, -1) } };
+    } else if (action === 'confirm' && this.hail) {
+      session.encounter = { npcId: this.hail.id, initiator: 'player', escapeFailed: false };
+      this.deps.switchMode('encounter');
     } else if (action === 'confirm' && this.near) {
       session.voyage = dockAt(session.voyage, this.near);
       this.deps.save();
@@ -141,7 +153,14 @@ export class SailingMode implements Mode {
     };
     this.timeSec += dtSec;
     this.wake.update(this.timeSec, dtSec, result.ship);
-    this.updateNearPort();
+    // A chaser that has caught the player forces an encounter (slice 2 spec §5.3).
+    const chaser = caughtBy(session.voyage.npcs, session.voyage.ship);
+    if (chaser) {
+      session.encounter = { npcId: chaser.id, initiator: 'npc', escapeFailed: false };
+      this.deps.switchMode('encounter');
+      return;
+    }
+    this.updatePrompt();
     this.updateHints(dtSec);
 
     this.sinceSaveSec += dtSec;
@@ -182,9 +201,21 @@ export class SailingMode implements Mode {
     this.sinceHintSec = 0;
   }
 
-  private updateNearPort(): void {
-    const { ship } = this.deps.session.voyage;
-    this.near = nearPort(this.deps.scene.ports, ship.x, ship.y);
-    this.deps.dockPrompt.setPort(this.near);
+  /** Closing with a ship takes priority over dropping anchor (slice 2 spec §5.3). */
+  private updatePrompt(): void {
+    const { voyage } = this.deps.session;
+    const { ship } = voyage;
+    this.hail = hailableNpc(voyage.npcs, ship);
+    this.near = this.hail ? null : nearPort(this.deps.scene.ports, ship.x, ship.y);
+    if (this.hail) {
+      this.deps.prompt.show(`npc:${this.hail.id}`, STRINGS.encounter.prompt(theShip(this.hail)));
+    } else if (this.near) {
+      this.deps.prompt.show(
+        `port:${this.near.def.id}`,
+        STRINGS.port.dropAnchor(this.near.def.name),
+      );
+    } else {
+      this.deps.prompt.hide();
+    }
   }
 }

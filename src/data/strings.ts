@@ -86,11 +86,40 @@ export const STRINGS = {
     closedToUs: 'Closed to English ships',
     setSail: 'Set sail',
     flagOf: (nationName: string) => `Flag of ${nationName}`,
+    pirateFlag: 'Pirate flag',
   },
   npc: {
     /** "Spanish fluyt", "Pirate brigantine". */
     label: (adjective: string, className: string) => `${adjective} ${className}`,
     pirate: 'Pirate',
+  },
+  encounter: {
+    prompt: (who: string) => `Close with ${who}`,
+    closeWith: (who: string) => `You close with ${who}.`,
+    bearsDown: (who: string) => `${who} bears down on you!`,
+    /** "Spanish", "English", ...; pirates in the middle of a sentence. */
+    pirate: 'pirate',
+    roleNoun: { trader: 'merchantman', warship: 'man-of-war', pirate: 'pirate' },
+    guns: (count: number) => `${count} guns`,
+    heavilyCrewed: 'She looks heavily crewed.',
+    undermanned: 'She looks undermanned.',
+    atWar: (a: string, b: string) => `${a} is at war with ${b}.`,
+    atPeace: (a: string, b: string) => `${a} is at peace with ${b}.`,
+    piratesAtWar: 'Pirates are at war with everyone.',
+    friendlyWarning: 'They fly the colours of a friendly nation. Attack anyway?',
+    attack: 'Attack',
+    attackAnyway: 'Attack anyway',
+    leave: 'Leave her be',
+    fight: 'Stand and fight',
+    run: 'Try to run',
+    escaped: 'You showed them your stern.',
+    caught: "They're too quick for us!",
+  },
+  combat: {
+    placeholderHeading: 'Battle stations!',
+    placeholderText:
+      'Ship combat arrives in the next milestone. For now the two ships part company.',
+    breakOff: 'Break off',
   },
   shipwright: {
     heading: 'Shipwright',

@@ -306,7 +306,7 @@ canvas.labels {
   pointer-events: none;
 }
 
-.dock-prompt {
+.context-prompt {
   position: absolute;
   left: 50%;
   bottom: calc(var(--safe-bottom) + var(--edge) + 12px);
@@ -326,13 +326,13 @@ canvas.labels {
   -webkit-user-select: none;
 }
 
-.dock-prompt:hover,
-.dock-prompt:active {
+.context-prompt:hover,
+.context-prompt:active {
   background: var(--brass);
   color: var(--ink);
 }
 
-.has-touch .dock-prompt {
+.has-touch .context-prompt {
   bottom: calc(var(--safe-bottom) + var(--edge) + 76px);
 }
 
@@ -584,6 +584,77 @@ canvas.labels {
   position: absolute;
   top: 0;
   left: 0;
+}
+
+/* ---- Encounter dialog -------------------------------------------------- */
+
+.encounter-screen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-top) + var(--edge)) calc(var(--safe-right) + var(--edge))
+    calc(var(--safe-bottom) + var(--edge)) calc(var(--safe-left) + var(--edge));
+  background: rgba(11, 26, 46, 0.45);
+}
+
+.encounter-card {
+  width: min(28rem, 100%);
+}
+
+.encounter-card:focus {
+  outline: none;
+}
+
+.encounter-heading {
+  margin: 0 0 10px;
+  font-family: var(--font-period-sc);
+  font-weight: normal;
+  font-size: clamp(1.4rem, 5vw, 1.9rem);
+  line-height: 1.15;
+}
+
+.encounter-who {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.encounter-description,
+.encounter-strength,
+.encounter-relation {
+  margin: 6px 0;
+  font-family: var(--font-period);
+  font-size: 1.1rem;
+  line-height: 1.3;
+}
+
+.encounter-strength {
+  font-style: italic;
+}
+
+.encounter-warning {
+  margin: 10px 0 4px;
+  font-family: var(--font-period);
+  font-size: 1.15rem;
+  font-weight: bold;
+  color: #7a1e12;
+}
+
+.encounter-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.encounter-actions > :only-child {
+  grid-column: 1 / -1;
+}
+
+.encounter-screen button:focus-visible {
+  outline-color: var(--ink);
 }
 
 /* ---- Shipwright ------------------------------------------------------- */

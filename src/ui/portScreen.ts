@@ -73,7 +73,7 @@ export class PortScreen {
     const nation = NATIONS[port.def.nation];
     this.name.textContent = port.def.name;
     this.nation.textContent = nation.name;
-    this.flag.setAttribute('aria-label', STRINGS.port.flagOf(nation.name));
+    this.flag.setAttribute('aria-label', STRINGS.port.flagOf(nation.sentenceName));
     this.flag.querySelectorAll<HTMLElement>('.flag-pixel').forEach((pixel, i) => {
       pixel.style.background = nation.flag[i] ?? 'transparent';
     });
