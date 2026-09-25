@@ -183,7 +183,7 @@ describe('migration from v1', () => {
     const jamaica = lonLatToWorld(-77.3, 18.1);
     expect(parseSave(v1With({}, { x: jamaica.x, y: jamaica.y }), ctx)).toBeNull();
     expect(parseSave(v1With({}, { sail: 'reefed' }), ctx)).toBeNull();
-    expect(parseSave(v1With({}, { classId: 'galleon' }), ctx)).toBeNull();
+    expect(parseSave(v1With({}, { classId: 'man-o-war' }), ctx)).toBeNull();
     expect(parseSave(v1With({ lastPortId: 'atlantis' }), ctx)).toBeNull();
     expect(parseSave(v1With({ crew: 1.5 }), ctx)).toBeNull();
     expect(parseSave(v1With({ crew: undefined }), ctx)).toBeNull();
@@ -216,6 +216,7 @@ describe('save validation', () => {
     expect(parseSave(v2With({}, {}, { riggingPct: -1 }), ctx)).toBeNull();
     expect(parseSave(v2With({}, {}, { crew: 2.5 }), ctx)).toBeNull();
     expect(parseSave(v2With({}, {}, { gunsIntact: 9 }), ctx)).toBeNull();
+    expect(parseSave(v2With({}, {}, { crew: 61 }), ctx)).toBeNull(); // sloop crewMax is 60
     const data = toSaveData(voyage);
     const noCondition = { ...data, ship: { ...data.ship, condition: null } };
     expect(parseSave(JSON.stringify(noCondition), ctx)).toBeNull();

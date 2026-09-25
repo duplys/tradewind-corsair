@@ -161,8 +161,10 @@ export interface SaveContext {
 function validateCondition(raw: unknown, classId: ShipClassId): ShipCondition | null {
   if (!isObject(raw)) return null;
   const { hullPct, riggingPct, crew, gunsIntact } = raw;
-  if (!isPercent(hullPct) || !isPercent(riggingPct) || !isCount(crew)) return null;
-  if (!isCount(gunsIntact) || gunsIntact > SHIP_CLASSES[classId].guns) return null;
+  const cls = SHIP_CLASSES[classId];
+  if (!isPercent(hullPct) || !isPercent(riggingPct)) return null;
+  if (!isCount(crew) || crew > cls.crewMax) return null;
+  if (!isCount(gunsIntact) || gunsIntact > cls.guns) return null;
   return { hullPct, riggingPct, crew, gunsIntact };
 }
 

@@ -7,6 +7,7 @@ import { createRng, type RngState } from './rng';
 import { departFrom } from './sailing/start';
 import type { PlayerShip } from './sailing/ship';
 import { fullCondition, type ShipCondition } from './ships/condition';
+import type { RepairPlan } from './ships/repair';
 import { START_ELAPSED_HOURS } from './time';
 import { findPort, type Port } from './world/ports';
 import type { World } from './world/world';
@@ -113,5 +114,15 @@ export function setSailFrom(voyage: Voyage, world: World, port: Port): Voyage {
     ...voyage,
     ship: departFrom(world, port.harbour, voyage.ship.classId),
     dockedPortId: null,
+  };
+}
+
+/** Pay for a repair and let the days pass while it is done (slice 2 spec §3.4). */
+export function repairShip(voyage: Voyage, plan: RepairPlan): Voyage {
+  return {
+    ...voyage,
+    condition: plan.condition,
+    gold: voyage.gold - plan.costGold,
+    elapsedHours: voyage.elapsedHours + plan.hours,
   };
 }
