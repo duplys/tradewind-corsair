@@ -26,6 +26,23 @@ export const WIND_FACTOR_MAX = 1.3;
 /** Collision probe ahead of the ship, in world px. */
 export const BOW_PROBE_PX = 7;
 
+/**
+ * The scale that turns knots into movement for one kind of map. The ship physics is the same
+ * everywhere (player, NPCs, combat); only these constants differ.
+ */
+export interface SailingScale {
+  /** Map pixels moved per second of simulation per knot of speed. */
+  readonly pxPerSecPerKnot: number;
+  /** Collision probe ahead of the bow, in map pixels. */
+  readonly bowProbePx: number;
+}
+
+/** The world map (slice 1 spec §3.2): about 2.67 world px per second per knot. */
+export const WORLD_SAILING_SCALE: SailingScale = {
+  pxPerSecPerKnot: PX_PER_NM * GAME_HOURS_PER_SECOND,
+  bowProbePx: BOW_PROBE_PX,
+};
+
 /** Wind model (spec §5): the trades blow toward the WSW, i.e. from the ENE. */
 export const WIND_BASE_TOWARD_RAD = Math.PI - 0.35;
 export const WIND_SPEED_MIN_KN = 5;
