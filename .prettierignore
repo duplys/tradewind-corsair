@@ -5,3 +5,4 @@ package-lock.json
 LICENSE
 CLAUDE.md
 docs/
+tests/persist/fixtures/

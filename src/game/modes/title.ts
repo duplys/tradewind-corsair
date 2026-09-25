@@ -6,6 +6,7 @@ import { windAt } from '../../sim/sailing/wind';
 import { START_ELAPSED_HOURS } from '../../sim/time';
 import { newVoyage, type Voyage } from '../../sim/voyage';
 import type { TitleScreen } from '../../ui/titleScreen';
+import { freshSeed } from '../seed';
 import type { Session } from '../session';
 import type { Mode, SwitchMode } from './mode';
 
@@ -71,7 +72,7 @@ export class TitleMode implements Mode {
   }
 
   private startNewVoyage(): void {
-    this.deps.session.voyage = newVoyage(this.deps.scene.world, this.deps.scene.ports);
+    this.deps.session.voyage = newVoyage(this.deps.scene.world, this.deps.scene.ports, freshSeed());
     this.deps.switchMode('sailing');
   }
 }

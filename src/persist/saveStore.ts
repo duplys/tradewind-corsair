@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import type { Voyage } from '../sim/voyage';
-import { parseSave, SAVE_KEY, toSaveData, type SaveContext } from './save';
+import { LEGACY_SAVE_KEY_V1, parseSave, SAVE_KEY, toSaveData, type SaveContext } from './save';
 
 /** The part of Web Storage the save needs; lets tests pass a fake. */
 export type SaveStorage = Pick<Storage, 'getItem' | 'setItem'>;
@@ -16,7 +16,8 @@ export function browserStorage(): SaveStorage | null {
 
 /**
  * The single save slot. Every storage access is wrapped so the game runs without storage.
- * An invalid save is ignored, never deleted.
+ * An invalid save is ignored, never deleted. Saves are written as v2; a slice 1 (v1) save is
+ * read and migrated only while no v2 save exists, and is left in place.
  */
 export class SaveStore {
   constructor(
@@ -28,7 +29,7 @@ export class SaveStore {
     if (!this.storage) return null;
     let text: string | null;
     try {
-      text = this.storage.getItem(SAVE_KEY);
+      text = this.storage.getItem(SAVE_KEY) ?? this.storage.getItem(LEGACY_SAVE_KEY_V1);
     } catch {
       return null;
     }

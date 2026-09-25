@@ -66,6 +66,7 @@ export class Game {
     this.store = new SaveStore(browserStorage(), {
       world,
       portIds: new Set(PORTS.map((p) => p.id)),
+      ...(import.meta.env.DEV ? { warn: (message: string) => console.warn(message) } : {}),
     });
     this.session = { voyage: newVoyage(world, ports) };
     const session = this.session;
