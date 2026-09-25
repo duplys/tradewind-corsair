@@ -23,6 +23,7 @@ function actionForKey(e: KeyboardEvent): Action | null {
       return 'confirm';
   }
   if (e.key === 'Escape') return 'close';
+  if (import.meta.env.DEV && e.code === 'KeyK') return 'debugDamage';
   if (e.key === 'm' || e.key === 'M') return 'chart';
   return null;
 }

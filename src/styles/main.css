@@ -124,6 +124,52 @@ button:focus-visible {
   font-size: 15px;
 }
 
+.ledger-gold,
+.ledger-crew {
+  font-family: var(--font-numerals);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.ledger-condition {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  justify-content: start;
+  gap: 2px 8px;
+  margin-top: 3px;
+  font-family: var(--font-period);
+  font-size: 13px;
+}
+
+/* Hull and rigging: ten crisp segments, amber below 50 %, red below 25 %. */
+.pixel-bar {
+  --bar-fill: var(--brass);
+  display: inline-grid;
+  grid-template-columns: repeat(10, 5px);
+  gap: 1px;
+  padding: 1px;
+  background: var(--ink);
+  outline: 1px solid rgba(201, 162, 74, 0.6);
+}
+
+.pixel-bar.is-low {
+  --bar-fill: #d9822b;
+}
+
+.pixel-bar.is-critical {
+  --bar-fill: #c8412e;
+}
+
+.pixel-bar-segment {
+  height: 6px;
+  background: rgba(234, 220, 180, 0.12);
+}
+
+.pixel-bar-segment.is-filled {
+  background: var(--bar-fill);
+}
+
 .hud-button {
   margin-top: 4px;
   padding: 3px 8px;
@@ -538,6 +584,65 @@ canvas.labels {
   position: absolute;
   top: 0;
   left: 0;
+}
+
+/* ---- Shipwright ------------------------------------------------------- */
+
+.shipwright-screen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-top) + var(--edge)) calc(var(--safe-right) + var(--edge))
+    calc(var(--safe-bottom) + var(--edge)) calc(var(--safe-left) + var(--edge));
+  background: rgba(11, 26, 46, 0.45);
+}
+
+.shipwright-card {
+  width: min(26rem, 100%);
+}
+
+.shipwright-heading {
+  margin: 0 0 6px;
+  font-family: var(--font-period-sc);
+  font-weight: normal;
+  font-size: 2rem;
+}
+
+.shipwright-state,
+.shipwright-purse {
+  margin: 0 0 4px;
+  font-family: var(--font-numerals);
+  font-size: 1.25rem;
+}
+
+.shipwright-note {
+  margin: 6px 0;
+  font-family: var(--font-period);
+  font-style: italic;
+  font-size: 1.05rem;
+}
+
+.shipwright-note:empty {
+  display: none;
+}
+
+.shipwright-actions {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.shipwright-actions .offer-label {
+  display: block;
+}
+
+.shipwright-screen button:focus-visible {
+  outline-color: var(--ink);
+}
+
+.shipwright-back {
+  width: 100%;
 }
 
 @media (prefers-reduced-motion: reduce) {

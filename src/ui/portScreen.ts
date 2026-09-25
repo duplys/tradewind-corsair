@@ -17,6 +17,9 @@ export class PortScreen {
   private readonly date = el('p', 'port-date');
   private readonly card = el('div', 'parchment-card');
   private readonly setSail = el('button', 'parchment-button set-sail', STRINGS.port.setSail);
+  private readonly shipwright = el('button', 'parchment-button', STRINGS.port.shipwright);
+  private readonly shipwrightCaption = el('small', 'caption');
+  private onShipwright: (() => void) | null = null;
 
   constructor(onSetSail: () => void) {
     this.root.hidden = true;
@@ -35,12 +38,7 @@ export class PortScreen {
     nationLine.append(this.flag, this.nation);
 
     const actions = el('div', 'port-actions');
-    const future = [
-      STRINGS.port.governor,
-      STRINGS.port.tavern,
-      STRINGS.port.merchant,
-      STRINGS.port.shipwright,
-    ];
+    const future = [STRINGS.port.governor, STRINGS.port.tavern, STRINGS.port.merchant];
     for (const label of future) {
       const button = el('button', 'parchment-button', label);
       button.type = 'button';
@@ -48,6 +46,10 @@ export class PortScreen {
       button.append(el('small', 'caption', STRINGS.port.comingSoon));
       actions.append(button);
     }
+    this.shipwright.type = 'button';
+    this.shipwright.append(this.shipwrightCaption);
+    this.shipwright.addEventListener('click', () => this.onShipwright?.());
+    actions.append(this.shipwright);
     this.setSail.type = 'button';
     this.setSail.addEventListener('click', onSetSail);
 
@@ -59,7 +61,15 @@ export class PortScreen {
     parent.append(this.root);
   }
 
-  show(port: Port, dateText: string): void {
+  /**
+   * Show a port. \`onShipwright\` is null where the shipwright will not serve the player (a
+   * port hostile to England, slice 2 spec §3.4).
+   */
+  show(port: Port, dateText: string, onShipwright: (() => void) | null): void {
+    this.onShipwright = onShipwright;
+    this.shipwright.disabled = onShipwright === null;
+    this.shipwrightCaption.textContent = onShipwright ? '' : STRINGS.port.closedToUs;
+    this.shipwrightCaption.hidden = onShipwright !== null;
     const nation = NATIONS[port.def.nation];
     this.name.textContent = port.def.name;
     this.nation.textContent = nation.name;
@@ -73,7 +83,18 @@ export class PortScreen {
     this.card.focus();
   }
 
+  /** Refresh the date after time passes in port (repairs). */
+  setDate(dateText: string): void {
+    this.date.textContent = dateText;
+  }
+
+  /** Give focus back to the card, e.g. after closing the Shipwright. */
+  focus(): void {
+    this.card.focus();
+  }
+
   hide(): void {
     this.root.hidden = true;
+    this.onShipwright = null;
   }
 }

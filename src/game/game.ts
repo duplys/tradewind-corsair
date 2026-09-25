@@ -17,6 +17,7 @@ import { DockPrompt } from '../ui/dockPrompt';
 import { Hud } from '../ui/hud';
 import { MessageLine } from '../ui/messageLine';
 import { PortScreen } from '../ui/portScreen';
+import { ShipwrightPanel } from '../ui/shipwrightPanel';
 import { TitleScreen } from '../ui/titleScreen';
 import { createLoop, type Loop } from './loop';
 import { ModeMachine } from './modeMachine';
@@ -38,6 +39,7 @@ export class Game {
   private readonly messages = new MessageLine();
   private readonly dockPrompt = new DockPrompt(() => this.input.press('confirm'));
   private readonly portScreen = new PortScreen(() => this.input.press('confirm'));
+  private readonly shipwright = new ShipwrightPanel();
   private readonly titleScreen = new TitleScreen();
   private readonly chart: ChartOverlay;
   private readonly store: SaveStore;
@@ -92,7 +94,14 @@ export class Game {
         switchMode,
         save,
       }),
-      new PortMode({ scene, session, portScreen: this.portScreen, switchMode, save }),
+      new PortMode({
+        scene,
+        session,
+        portScreen: this.portScreen,
+        shipwright: this.shipwright,
+        switchMode,
+        save,
+      }),
       new ChartMode({ session, chart: this.chart, switchMode }),
     ]);
     this.loop = createLoop({
@@ -109,6 +118,7 @@ export class Game {
     this.dockPrompt.attach(root);
     this.touch?.attach(root);
     this.portScreen.attach(root);
+    this.shipwright.attach(root);
     this.chart.attach(root);
     this.titleScreen.attach(root);
     this.resize();

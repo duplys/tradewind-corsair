@@ -5,7 +5,11 @@ import type { Action, HeldActions } from '../../input/actions';
 import type { TouchControls } from '../../input/touch';
 import { Wake } from '../../render/effects/wake';
 import { drawSeaScene, type SeaScene } from '../../render/scene';
-import { changeSail, stepShip, type PlayerShip } from '../../sim/sailing/ship';
+import { DEV_DAMAGE_STEP } from '../../data/condition';
+import { WORLD_SAILING_SCALE } from '../../data/sailing';
+import { SHIP_CLASSES } from '../../data/ships';
+import { changeSail, stepShip, type StepParams } from '../../sim/sailing/ship';
+import { damageCondition, performanceOf, type ShipCondition } from '../../sim/ships/condition';
 import { windAt, type Wind } from '../../sim/sailing/wind';
 import { advanceClock } from '../../sim/time';
 import { dockAt } from '../../sim/voyage';
@@ -32,8 +36,10 @@ export interface SailingDeps {
 
 export class SailingMode implements Mode {
   readonly id = 'sailing';
-  /** What the HUD shows; one reused object, refreshed every step. */
-  private readonly hudState: { ship: PlayerShip; wind: Wind; elapsedHours: number };
+  private wind: Wind;
+  /** Physics parameters for the player's ship, recomputed only when its condition changes. */
+  private stepParams: StepParams | null = null;
+  private stepParamsFor: ShipCondition | null = null;
   private near: Port | null = null;
   /** Real seconds spent sailing; drives effects only. */
   private timeSec = 0;
@@ -43,7 +49,7 @@ export class SailingMode implements Mode {
 
   constructor(private readonly deps: SailingDeps) {
     const { ship, elapsedHours } = deps.session.voyage;
-    this.hudState = { ship, elapsedHours, wind: windAt(ship.x, ship.y, elapsedHours) };
+    this.wind = windAt(ship.x, ship.y, elapsedHours);
   }
 
   enter(from: ModeId | null): void {
@@ -53,7 +59,8 @@ export class SailingMode implements Mode {
       this.sinceSaveSec = 0;
       this.sinceHintSec = 0;
     }
-    this.refreshHudState(windAt(0, 0, this.deps.session.voyage.elapsedHours));
+    const { ship, elapsedHours } = this.deps.session.voyage;
+    this.wind = windAt(ship.x, ship.y, elapsedHours);
     this.updateNearPort();
     this.deps.hud.show();
     this.deps.touch?.show();
@@ -77,6 +84,11 @@ export class SailingMode implements Mode {
       session.voyage = dockAt(session.voyage, this.near);
       this.deps.save();
       this.deps.switchMode('port');
+    } else if (action === 'debugDamage' && import.meta.env.DEV) {
+      session.voyage = {
+        ...session.voyage,
+        condition: damageCondition(session.voyage.condition, DEV_DAMAGE_STEP),
+      };
     } else if (action === 'chart') {
       this.deps.switchMode('chart');
     }
@@ -86,7 +98,16 @@ export class SailingMode implements Mode {
     const { held, scene, messages, session } = this.deps;
     const voyage = session.voyage;
     const wind = windAt(voyage.ship.x, voyage.ship.y, voyage.elapsedHours);
-    const result = stepShip(voyage.ship, held, wind, scene.world, dtSec);
+    this.wind = wind;
+    // A damaged or short-handed ship is slower on the world map too (slice 2 spec §3.2).
+    const result = stepShip(
+      voyage.ship,
+      held,
+      wind,
+      scene.world,
+      dtSec,
+      this.params(voyage.condition),
+    );
     for (const event of result.events) {
       if (event.type === 'shoal') messages.show(STRINGS.shoal, this.timeSec);
     }
@@ -97,7 +118,6 @@ export class SailingMode implements Mode {
     };
     this.timeSec += dtSec;
     this.wake.update(this.timeSec, dtSec, result.ship);
-    this.refreshHudState(wind);
     this.updateNearPort();
     this.updateHints(dtSec);
 
@@ -113,18 +133,20 @@ export class SailingMode implements Mode {
       this.deps.scene,
       this.deps.session.voyage.ship,
       this.timeSec,
-      this.hudState.wind.towardRad,
+      this.wind.towardRad,
       this.wake,
     );
-    this.deps.hud.update(this.hudState, this.timeSec);
+    this.deps.hud.update(this.deps.session.voyage, this.wind, this.timeSec);
     this.deps.messages.update(this.timeSec);
   }
 
-  private refreshHudState(wind: Wind): void {
-    const { ship, elapsedHours } = this.deps.session.voyage;
-    this.hudState.ship = ship;
-    this.hudState.elapsedHours = elapsedHours;
-    this.hudState.wind = wind;
+  private params(condition: ShipCondition): StepParams {
+    if (!this.stepParams || condition !== this.stepParamsFor) {
+      const cls = SHIP_CLASSES[this.deps.session.voyage.ship.classId];
+      this.stepParams = { performance: performanceOf(cls, condition), scale: WORLD_SAILING_SCALE };
+      this.stepParamsFor = condition;
+    }
+    return this.stepParams;
   }
 
   /** First-voyage hints, shown once per save (spec §9.6). */
