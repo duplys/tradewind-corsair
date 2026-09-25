@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { STRINGS } from '../../data/strings';
+import { AUTOSAVE_INTERVAL_SEC } from '../../data/voyage';
 import type { Action, HeldActions } from '../../input/actions';
 import type { TouchControls } from '../../input/touch';
 import { Wake } from '../../render/effects/wake';
@@ -12,8 +13,9 @@ import { nearPort, type Port } from '../../sim/world/ports';
 import type { DockPrompt } from '../../ui/dockPrompt';
 import type { Hud } from '../../ui/hud';
 import type { MessageLine } from '../../ui/messageLine';
+import { hintDue } from '../hints';
 import type { Session } from '../session';
-import type { Mode, SwitchMode } from './mode';
+import type { Mode, ModeId, SwitchMode } from './mode';
 
 export interface SailingDeps {
   readonly scene: SeaScene;
@@ -24,6 +26,8 @@ export interface SailingDeps {
   readonly dockPrompt: DockPrompt;
   readonly touch: TouchControls | null;
   readonly switchMode: SwitchMode;
+  /** Write the current voyage to the save slot. */
+  readonly save: () => void;
 }
 
 export class SailingMode implements Mode {
@@ -34,14 +38,21 @@ export class SailingMode implements Mode {
   /** Real seconds spent sailing; drives effects only. */
   private timeSec = 0;
   private readonly wake = new Wake();
+  private sinceSaveSec = 0;
+  private sinceHintSec = 0;
 
   constructor(private readonly deps: SailingDeps) {
     const { ship, elapsedHours } = deps.session.voyage;
     this.hudState = { ship, elapsedHours, wind: windAt(ship.x, ship.y, elapsedHours) };
   }
 
-  enter(): void {
-    this.wake.clear();
+  enter(from: ModeId | null): void {
+    // The chart only pauses the voyage; anything else means the ship was placed afresh.
+    if (from !== 'chart') this.wake.clear();
+    if (from === 'title') {
+      this.sinceSaveSec = 0;
+      this.sinceHintSec = 0;
+    }
     this.refreshHudState(windAt(0, 0, this.deps.session.voyage.elapsedHours));
     this.updateNearPort();
     this.deps.hud.show();
@@ -64,7 +75,10 @@ export class SailingMode implements Mode {
       session.voyage = { ...session.voyage, ship: { ...ship, sail: changeSail(ship.sail, -1) } };
     } else if (action === 'confirm' && this.near) {
       session.voyage = dockAt(session.voyage, this.near);
+      this.deps.save();
       this.deps.switchMode('port');
+    } else if (action === 'chart') {
+      this.deps.switchMode('chart');
     }
   }
 
@@ -85,6 +99,13 @@ export class SailingMode implements Mode {
     this.wake.update(this.timeSec, dtSec, result.ship);
     this.refreshHudState(wind);
     this.updateNearPort();
+    this.updateHints(dtSec);
+
+    this.sinceSaveSec += dtSec;
+    if (this.sinceSaveSec >= AUTOSAVE_INTERVAL_SEC) {
+      this.sinceSaveSec = 0;
+      this.deps.save();
+    }
   }
 
   render(): void {
@@ -98,6 +119,18 @@ export class SailingMode implements Mode {
     this.hudState.ship = ship;
     this.hudState.elapsedHours = elapsedHours;
     this.hudState.wind = wind;
+  }
+
+  /** First-voyage hints, shown once per save (spec §9.6). */
+  private updateHints(dtSec: number): void {
+    const { session, messages } = this.deps;
+    const shown = session.voyage.hintsShown;
+    if (shown >= STRINGS.hints.length) return;
+    this.sinceHintSec += dtSec;
+    if (!hintDue(shown, this.sinceHintSec, STRINGS.hints.length)) return;
+    messages.show(STRINGS.hints[shown]!, this.timeSec);
+    session.voyage = { ...session.voyage, hintsShown: shown + 1 };
+    this.sinceHintSec = 0;
   }
 
   private updateNearPort(): void {

@@ -14,6 +14,8 @@ export interface PortDeps {
   readonly session: Session;
   readonly portScreen: PortScreen;
   readonly switchMode: SwitchMode;
+  /** Write the current voyage to the save slot. */
+  readonly save: () => void;
 }
 
 /** At anchor (slice 1 spec §4.2). Game time is paused; the port screen covers the map. */
@@ -54,6 +56,7 @@ export class PortMode implements Mode {
     if (!this.port) return;
     const { session, scene } = this.deps;
     session.voyage = setSailFrom(session.voyage, scene.world, this.port);
+    this.deps.save();
     this.deps.switchMode('sailing');
   }
 }

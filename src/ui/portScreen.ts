@@ -2,17 +2,7 @@
 import { NATIONS } from '../data/nations';
 import { STRINGS } from '../data/strings';
 import type { Port } from '../sim/world/ports';
-
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className: string,
-  text?: string,
-): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  node.className = className;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
+import { el } from './dom';
 
 /**
  * The port screen (slice 1 spec §4.2): a parchment card with the port's name, nation and flag,

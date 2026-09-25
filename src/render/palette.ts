@@ -107,3 +107,14 @@ export const FLAG_POLE = '#2b1a0e';
 /** Port labels on the native-resolution label canvas (spec §8.3 step 6). */
 export const LABEL_FILL = '#eadcb4';
 export const LABEL_STROKE = '#0b1a2e';
+
+/** Chart overlay colours (spec §9.3). */
+export const CHART_COLORS = {
+  ink: '#2a1d12',
+  grid: 'rgba(42, 29, 18, 0.22)',
+  frame: '#c9a24a',
+  halo: 'rgba(234, 220, 180, 0.9)',
+  ship: '#c9a24a',
+  roseFill: 'rgba(234, 220, 180, 0.85)',
+  wind: '#2f6f9a',
+} as const;

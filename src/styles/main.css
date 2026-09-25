@@ -17,6 +17,11 @@
   color-scheme: dark;
 }
 
+/* Overlays toggle with the hidden attribute; never let a display rule override it. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   height: 100%;
@@ -130,16 +135,10 @@ button:focus-visible {
   cursor: pointer;
 }
 
-.hud-button:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.hud-button .caption {
-  display: block;
-  font-family: var(--font-period);
-  font-style: italic;
-  font-size: 11px;
+.hud-button:hover,
+.hud-button:active {
+  background: var(--brass);
+  color: var(--ink);
 }
 
 .helm {
@@ -307,10 +306,6 @@ canvas.labels {
   background: rgba(11, 26, 46, 0.55);
 }
 
-.port-screen[hidden] {
-  display: none;
-}
-
 .parchment-card {
   box-sizing: border-box;
   width: min(30rem, 100%);
@@ -409,6 +404,140 @@ canvas.labels {
 
 .port-screen button:focus-visible {
   outline-color: var(--ink);
+}
+
+/* ---- Title screen ------------------------------------------------------ */
+
+.title-screen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--safe-top) + var(--edge)) calc(var(--safe-right) + var(--edge))
+    calc(var(--safe-bottom) + var(--edge)) calc(var(--safe-left) + var(--edge));
+  background: linear-gradient(rgba(11, 26, 46, 0.15), rgba(11, 26, 46, 0.55));
+}
+
+.title-card {
+  width: min(32rem, 100%);
+}
+
+.title-heading {
+  margin: 0;
+  font-family: var(--font-period-sc);
+  font-weight: normal;
+  font-size: clamp(2.2rem, 9vw, 3.2rem);
+  line-height: 1.05;
+}
+
+.title-tagline {
+  margin: 6px 0 14px;
+  font-family: var(--font-period);
+  font-style: italic;
+  font-size: 1.2rem;
+  line-height: 1.3;
+}
+
+.title-controls-heading {
+  margin: 0 0 4px;
+  font-family: var(--font-period-sc);
+  font-weight: normal;
+  font-size: 1.05rem;
+}
+
+.title-controls {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: center;
+  gap: 2px 14px;
+  margin: 0 0 16px;
+  font-family: var(--font-period);
+  font-size: 1rem;
+  text-align: left;
+}
+
+.title-controls dt {
+  font-family: var(--font-numerals);
+  font-size: 1.2rem;
+  text-align: right;
+}
+
+.title-controls dd {
+  margin: 0;
+}
+
+.title-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.title-actions .parchment-button {
+  font-size: 1.3rem;
+}
+
+.title-actions .title-continue,
+.title-actions .title-continue[hidden] + .title-new {
+  background: var(--ink);
+  color: var(--parchment);
+}
+
+.title-screen button:focus-visible {
+  outline-color: var(--ink);
+}
+
+/* ---- Chart ------------------------------------------------------------- */
+
+.chart-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--safe-top) + var(--edge)) calc(var(--safe-right) + var(--edge))
+    calc(var(--safe-bottom) + var(--edge)) calc(var(--safe-left) + var(--edge));
+  background: radial-gradient(ellipse at center, var(--parchment) 60%, var(--parchment-shade));
+  color: var(--ink);
+}
+
+.chart-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.chart-heading {
+  margin: 0;
+  font-family: var(--font-period-sc);
+  font-weight: normal;
+  font-size: clamp(1.4rem, 5vw, 2rem);
+  line-height: 1.1;
+}
+
+.chart-date {
+  margin: 2px 0 0;
+  font-family: var(--font-numerals);
+  font-size: 1.25rem;
+}
+
+.chart-close {
+  flex: none;
+}
+
+.chart-overlay button:focus-visible {
+  outline-color: var(--ink);
+}
+
+.chart-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin-top: 6px;
+}
+
+.chart-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

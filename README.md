@@ -40,6 +40,10 @@ Other scripts:
 | Hoist (more sail) | ↑ or W        | Hoist                      |
 | Reef (less sail)  | ↓ or S        | Reef                       |
 
+The voyage is saved in the browser (localStorage) when you dock, when you leave port,
+every 30 seconds at sea and when you switch tabs. Choose **Continue voyage** on the title
+screen to pick it up again.
+
 Sail across the wind for the best speed. The red wedge on the compass marks the wind's
 eye, where the ship stops.
 

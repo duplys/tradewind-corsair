@@ -1,6 +1,6 @@
 # 003: Early playable build before HUD, ports and title screen
 
-Status: accepted (slice 1, milestones M2–M3). These shortcuts are temporary.
+Status: superseded. All shortcuts were retired by M6 (see ADRs 004–006).
 
 ## Context
 
@@ -10,7 +10,7 @@ usable.
 
 ## Decision
 
-- **Boot goes straight to `sailing`.** `title` stays registered and becomes the real title
+- **Boot goes straight to `sailing`** (retired in M6: the game now boots to the title screen). `title` stays registered and becomes the real title
   screen in M6.
 - **Start position** (replaced in M5 by the port table, see ADR 005): `sim/sailing/start.ts` derives Bridgetown's harbour directly from
   `START_LON/START_LAT` with the §4.1 searches (`sim/world/search.ts`). In M5 it should read

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { START_PORT_ID } from '../data/ports';
+import { START_CREW, START_GOLD } from '../data/voyage';
 import { departFrom } from './sailing/start';
 import type { PlayerShip } from './sailing/ship';
 import { START_ELAPSED_HOURS } from './time';
@@ -13,6 +14,10 @@ export interface Voyage {
   readonly lastPortId: string;
   /** The port the ship is anchored in, or null at sea. */
   readonly dockedPortId: string | null;
+  readonly gold: number;
+  readonly crew: number;
+  /** How many of the first-voyage hints have been shown (spec §9.6). */
+  readonly hintsShown: number;
 }
 
 /** A new voyage leaves the start port on 1 March 1660, 08:00 (slice 1 spec §10). */
@@ -23,6 +28,9 @@ export function newVoyage(world: World, ports: readonly Port[]): Voyage {
     elapsedHours: START_ELAPSED_HOURS,
     lastPortId: port.def.id,
     dockedPortId: null,
+    gold: START_GOLD,
+    crew: START_CREW,
+    hintsShown: 0,
   };
 }
 

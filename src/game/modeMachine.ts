@@ -18,9 +18,10 @@ export class ModeMachine {
     const next = this.modes.get(id);
     if (!next) throw new Error(`Unknown mode: ${id}`);
     if (next === this.currentMode) return;
-    this.currentMode?.exit();
+    const from = this.currentMode;
+    from?.exit();
     this.currentMode = next;
-    next.enter();
+    next.enter(from?.id ?? null);
   }
 
   update(dtSec: number): void {

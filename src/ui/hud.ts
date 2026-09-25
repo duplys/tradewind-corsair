@@ -5,6 +5,7 @@ import type { PlayerShip } from '../sim/sailing/ship';
 import type { Wind } from '../sim/sailing/wind';
 import { formatDate } from '../sim/time';
 import { drawCompass } from './compass';
+import { button, el } from './dom';
 import { helmLines } from './helmText';
 
 const COMPASS_CSS_PX = 72;
@@ -14,15 +15,6 @@ export interface HudState {
   readonly ship: PlayerShip;
   readonly wind: Wind;
   readonly elapsedHours: number;
-}
-
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  className: string,
-): HTMLElementTagNameMap[K] {
-  const node = document.createElement(tag);
-  node.className = className;
-  return node;
 }
 
 /** Sailing HUD (slice 1 spec §9.1): the ledger panel top-left and the helm panel top-right. */
@@ -36,16 +28,12 @@ export class Hud {
   private lastTextSec = -Infinity;
   private dpr = 0;
 
-  constructor() {
+  constructor(onChart: () => void) {
     this.root.hidden = true;
 
     const ledger = el('section', 'panel ledger');
-    const chart = el('button', 'hud-button');
-    chart.type = 'button';
-    chart.disabled = true;
-    const caption = el('small', 'caption');
-    caption.textContent = STRINGS.hud.comingSoon;
-    chart.append(STRINGS.hud.chart, caption);
+    const chart = button('hud-button', STRINGS.hud.chart);
+    chart.addEventListener('click', onChart);
     ledger.append(this.date, this.shipLine, chart);
 
     const helm = el('section', 'panel helm');

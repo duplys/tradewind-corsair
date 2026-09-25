@@ -34,12 +34,42 @@ export const STRINGS = {
   hud: {
     shipLine: (shipName: string, guns: number) => `${shipName} · ${guns} guns`,
     chart: 'Chart (M)',
-    comingSoon: 'Coming soon',
     course: (bearing: string, point: string) => `Course ${bearing}° ${point}`,
     speed: (knots: string, pointOfSail: string) => `${knots} kn · ${pointOfSail}`,
     wind: (point: string, knots: number) => `Wind ${point} ${knots} kn`,
     compassLabel: 'Compass: heading and wind',
   },
+  title: {
+    heading: 'Tradewind Corsair',
+    tagline: 'The West Indies, 1660. A sloop, forty hands, and the trade winds at your back.',
+    continueVoyage: 'Continue voyage',
+    newVoyage: 'New voyage',
+    controlsHeading: 'At the helm',
+    keyboardControls: [
+      ['← →', 'Steer'],
+      ['↑ ↓', 'Hoist or reef sail'],
+      ['Enter', 'Drop anchor near a port'],
+      ['M', 'Open the chart'],
+    ],
+    touchControls: [
+      ['◀ ▶', 'Hold to steer'],
+      ['Hoist · Reef', 'Make more or less sail'],
+      ['Drop anchor', 'Tap it near a port'],
+      ['Chart', 'See the whole map'],
+    ],
+  },
+  chart: {
+    heading: 'Chart of the West Indies',
+    close: 'Close chart',
+    lon: (deg: number) => `${deg}° W`,
+    lat: (deg: number) => `${deg}° N`,
+    north: 'N',
+  },
+  hints: [
+    'The trade winds blow from the east. Sail across them for best speed.',
+    "The red wedge on the compass is the wind's eye. Steer out of it.",
+    'Find a friendly port and drop anchor.',
+  ],
   port: {
     dropAnchor: (portName: string) => `Drop anchor at ${portName}`,
     governor: 'Governor',
