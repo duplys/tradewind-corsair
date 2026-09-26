@@ -2,12 +2,12 @@
 import { STRINGS } from '../data/strings';
 import { button, el } from './dom';
 
-/** How a fight ended, and a way back to sea (interim until the outcome screens, M7). */
+/** How a fight ended, in a few lines, and a way back to sea (spec §8.2–8.4). */
 export class CombatResultCard {
   private readonly root = el('div', 'encounter-screen');
   private readonly card = el('div', 'parchment-card encounter-card');
   private readonly heading = el('h2', 'encounter-heading');
-  private readonly note = el('p', 'encounter-relation');
+  private readonly lines = el('div', 'result-lines');
   private readonly done = button('parchment-button', STRINGS.combat.continue);
   private onDone: (() => void) | null = null;
 
@@ -21,7 +21,7 @@ export class CombatResultCard {
     this.done.addEventListener('click', () => this.onDone?.());
     const actions = el('div', 'encounter-actions');
     actions.append(this.done);
-    this.card.append(this.heading, this.note, actions);
+    this.card.append(this.heading, this.lines, actions);
     this.root.append(this.card);
   }
 
@@ -33,11 +33,10 @@ export class CombatResultCard {
     return !this.root.hidden;
   }
 
-  show(heading: string, note: string, onDone: () => void): void {
+  show(heading: string, lines: readonly string[], onDone: () => void): void {
     this.onDone = onDone;
     this.heading.textContent = heading;
-    this.note.textContent = note;
-    this.note.hidden = note === '';
+    this.lines.replaceChildren(...lines.map((line) => el('p', 'encounter-relation', line)));
     this.root.hidden = false;
     this.card.focus();
   }

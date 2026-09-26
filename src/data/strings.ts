@@ -122,17 +122,16 @@ export const STRINGS = {
     striking: "She's striking her colours!",
     takingWater: "We're taking water!",
     grapples: 'Grapples ready — close to board!',
-    // Results. The notes mark what later milestones will replace (ADR 012).
+    // Results (slice 2 spec §8).
     enemySunk: 'She went down with all hands.',
-    enemySunkNote: 'No plunder.',
+    noPlunder: 'No plunder.',
     playerSunk: 'Your ship is lost.',
-    playerSunkNote: 'Defeat comes in a later milestone: for now your battered ship limps on.',
-    captured: 'She is yours!',
-    capturedNote: 'The prize screen comes in a later milestone.',
-    boarding: 'Boarding!',
-    boardingNote: 'Boarding comes in a later milestone: for now the ships part company.',
     enemyEscaped: 'She got away.',
     playerEscaped: 'You slipped away.',
+    goldLost: (gold: string) => `You lose ${gold} gold.`,
+    putAshore: (port: string, crew: number) =>
+      `You are put ashore at ${port} with a sloop and ${crew} hands.`,
+    daysPass: (days: number) => `${days} days pass.`,
     // Combat HUD (slice 2 spec §10.3).
     crewNeeds: (crew: number, typical: number) => `Crew ${crew}, needs ${typical}`,
     crewAbout: (crew: number) => `Crew about ${crew}`,
@@ -150,6 +149,31 @@ export const STRINGS = {
     resume: 'Resume',
     surrender: 'Surrender',
     fire: 'Fire',
+    // Prize (slice 2 spec §8.1). The heading is split so the name can be set in italics.
+    prizeBefore: 'The ',
+    prizeAfter: ' is yours!',
+    plunder: (gold: string) => `Plunder: ${gold} gold`,
+    recruits: (count: number) =>
+      count === 0
+        ? 'None of her crew will sign on.'
+        : count === 1
+          ? '1 of her crew signs on with you.'
+          : `${count} of her crew sign on with you.`,
+    take: 'Take her as your ship',
+    sink: 'Sink her',
+    letGo: 'Let her go',
+    compare: (className: string, guns: number, knots: number, upwind: string) =>
+      `${className}: ${guns} guns, ${knots} kn. ${upwind}`,
+    upwindWorse: (current: string) => `Slower upwind than your ${current}.`,
+    upwindBetter: (current: string) => `Better upwind than your ${current}.`,
+    upwindSame: (current: string) => `As weatherly as your ${current}.`,
+    // Boarding melee (slice 2 spec §9).
+    boarding: 'Boarding!',
+    ourCrew: (crew: number) => `Our crew ${crew}`,
+    theirCrew: (crew: number) => `Their crew ${crew}`,
+    carriedDeck: 'We carried the deck!',
+    drivenBack: 'We were driven back!',
+    skipHint: 'Tap or press a key to skip',
     fireLabel: 'Fire the broadside that bears',
   },
   shipwright: {

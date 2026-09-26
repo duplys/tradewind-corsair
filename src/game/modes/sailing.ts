@@ -8,7 +8,7 @@ import { Wake } from '../../render/effects/wake';
 import { drawSeaScene, type SeaScene } from '../../render/scene';
 import { DEV_DAMAGE_STEP } from '../../data/condition';
 import { WORLD_SAILING_SCALE } from '../../data/sailing';
-import { SHIP_CLASSES } from '../../data/ships';
+import { SHIP_CLASSES, type ShipClassId } from '../../data/ships';
 import { changeSail, stepShip, type StepParams } from '../../sim/sailing/ship';
 import { damageCondition, performanceOf, type ShipCondition } from '../../sim/ships/condition';
 import { windAt, type Wind } from '../../sim/sailing/wind';
@@ -51,7 +51,9 @@ export class SailingMode implements Mode {
   private hail: NpcShip | null = null;
   /** Real seconds spent sailing; drives effects only. */
   private timeSec = 0;
-  private readonly wake = new Wake();
+  private wake = new Wake();
+  /** The class the wake was sized for (a captured prize can change the player's ship). */
+  private wakeClassId: ShipClassId = 'sloop';
   private readonly fade = new NpcFade();
   private sinceSaveSec = 0;
   private sinceHintSec = 0;
@@ -63,7 +65,13 @@ export class SailingMode implements Mode {
 
   enter(from: ModeId | null): void {
     // The chart only pauses the voyage; anything else means the ship was placed afresh.
-    if (from !== 'chart') this.wake.clear();
+    const classId = this.deps.session.voyage.ship.classId;
+    if (classId !== this.wakeClassId) {
+      this.wake = new Wake(SHIP_CLASSES[classId].worldLengthPx / 2);
+      this.wakeClassId = classId;
+    } else if (from !== 'chart') {
+      this.wake.clear();
+    }
     // A voyage just begun or loaded shows its ships at once; later arrivals fade in.
     if (from === 'title') this.fade.revealAll(this.deps.session.voyage.npcs, this.timeSec);
     if (from === 'title') {

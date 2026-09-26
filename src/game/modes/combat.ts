@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
+import { DEFEAT_CREW, DEFEAT_DAYS, DEFEAT_GOLD_KEPT_SHARE } from '../../data/combat';
 import { SHIP_CLASSES } from '../../data/ships';
 import { STRINGS } from '../../data/strings';
 import type { Action, HeldActions } from '../../input/actions';
@@ -7,16 +8,34 @@ import { CombatScene } from '../../render/combatScene';
 import type { NpcLabel } from '../../render/labels';
 import type { SeaScene } from '../../render/scene';
 import { decide } from '../../sim/combat/ai';
-import { applyCombatResult } from '../../sim/combat/result';
+import {
+  applyDefeat,
+  applyEnemyEscaped,
+  applyEnemySunk,
+  applyPlayerEscaped,
+  applyPrize,
+  concludeFight,
+  nearestFriendlyPort,
+  rollPrize,
+  survivingEnemyCrew,
+  survivingPlayerCrew,
+  type Conclusion,
+  type PrizeChoice,
+} from '../../sim/combat/outcome';
 import { createCombat, type CombatState } from '../../sim/combat/state';
 import { stepCombat, surrender, type CombatEvent, type CombatInput } from '../../sim/combat/step';
+import type { NpcShip } from '../../sim/npc/npc';
 import { restoreRng } from '../../sim/rng';
 import { windAt } from '../../sim/sailing/wind';
 import type { CombatHud } from '../../ui/combatHud';
+import type { BoardingOverlay } from '../../ui/boardingOverlay';
 import type { CombatResultCard } from '../../ui/combatResult';
 import { yards } from '../../ui/combatText';
 import type { MessageLine } from '../../ui/messageLine';
+import { formatGold } from '../../ui/format';
+import { compareShips } from '../../ui/outcomeText';
 import type { PauseOverlay } from '../../ui/pauseOverlay';
+import type { PrizeScreen } from '../../ui/prizeScreen';
 import type { Session } from '../session';
 import type { Mode, SwitchMode } from './mode';
 
@@ -32,6 +51,8 @@ export interface CombatDeps {
   readonly hud: CombatHud;
   readonly pause: PauseOverlay;
   readonly result: CombatResultCard;
+  readonly boarding: BoardingOverlay;
+  readonly prize: PrizeScreen;
   readonly messages: MessageLine;
   readonly touch: TouchControls | null;
   readonly switchMode: SwitchMode;
@@ -40,13 +61,15 @@ export interface CombatDeps {
 }
 
 /**
- * Ship combat (slice 2 spec §6, §10): the player against an enemy sailed by the combat AI, with
- * the combat HUD, effects and a pause overlay. A result card stands in for the outcome screens
- * of M7.
+ * Ship combat (slice 2 spec §6–§10): the player against an enemy sailed by the combat AI, with
+ * the combat HUD, effects and a pause overlay, then the boarding melee and the outcome screens.
  */
 export class CombatMode implements Mode {
   readonly id = 'combat';
   private combat: CombatState | null = null;
+  private npc: NpcShip | null = null;
+  /** When the boarding melee began to play, in combat time. */
+  private meleeStartSec = 0;
   private timeSec = 0;
   private sail: -1 | 0 | 1 = 0;
   private fire: CombatInput['fire'] = null;
@@ -76,6 +99,7 @@ export class CombatMode implements Mode {
     const rng = worldRng.fork('combat');
     session.voyage = { ...voyage, rngState: worldRng.state() };
     const { ship } = voyage;
+    this.npc = npc;
     this.combat = createCombat({
       player: {
         classId: ship.classId,
@@ -115,11 +139,14 @@ export class CombatMode implements Mode {
     this.deps.hud.hide();
     this.deps.pause.hide();
     this.deps.result.hide();
+    this.deps.boarding.hide();
+    this.deps.prize.hide();
     this.deps.touch?.hide();
     this.deps.touch?.setCombat(false);
     this.deps.messages.hide();
     this.deps.scene.labels.clear();
     this.combat = null;
+    this.npc = null;
   }
 
   /** The tab was hidden: pause the fight, so the player comes back to the pause overlay. */
@@ -128,10 +155,12 @@ export class CombatMode implements Mode {
   }
 
   handleAction(action: Action): void {
-    if (this.deps.result.isOpen) {
-      if (action === 'close') this.finish();
+    // Any key skips the boarding melee; the result screens are answered with their buttons.
+    if (this.deps.boarding.isAnimating) {
+      this.deps.boarding.skip();
       return;
     }
+    if (this.deps.result.isOpen || this.deps.boarding.isOpen || this.deps.prize.isOpen) return;
     if (action === 'pause' || action === 'close') {
       this.setPaused(!this.paused);
       return;
@@ -146,6 +175,11 @@ export class CombatMode implements Mode {
 
   update(dtSec: number): void {
     const combat = this.combat;
+    if (this.deps.boarding.isAnimating) {
+      this.timeSec += dtSec;
+      this.deps.boarding.update(this.timeSec - this.meleeStartSec);
+      return;
+    }
     if (!combat || combat.outcome || this.paused) return;
     this.timeSec += dtSec;
     const { held } = this.deps;
@@ -167,7 +201,7 @@ export class CombatMode implements Mode {
     for (const event of events) this.react(event, combat);
     this.view.update(combat, dtSec, this.timeSec);
     this.warnings(combat);
-    if (combat.outcome) this.showResult(combat);
+    if (combat.outcome) this.conclude(combat);
   }
 
   render(ctx: CanvasRenderingContext2D): void {
@@ -203,7 +237,7 @@ export class CombatMode implements Mode {
         if (this.combat) surrender(this.combat);
         this.deps.pause.hide();
         this.paused = false;
-        if (this.combat) this.showResult(this.combat);
+        if (this.combat) this.conclude(this.combat);
       },
     });
   }
@@ -234,46 +268,93 @@ export class CombatMode implements Mode {
     }
   }
 
-  private showResult(combat: CombatState): void {
-    const c = STRINGS.combat;
-    const outcome = combat.outcome!;
-    let heading: string;
-    let note = '';
-    switch (outcome.type) {
-      case 'sunk':
-        [heading, note] =
-          outcome.shipIndex === 1
-            ? [c.enemySunk, c.enemySunkNote]
-            : [c.playerSunk, c.playerSunkNote];
-        break;
-      case 'captured':
-        [heading, note] = [c.captured, c.capturedNote];
-        break;
-      case 'boarding':
-        [heading, note] = [c.boarding, c.boardingNote];
-        break;
-      case 'escaped':
-        heading = outcome.shipIndex === 1 ? c.enemyEscaped : c.playerEscaped;
-        break;
-      case 'surrendered':
-        [heading, note] = [c.playerSunk, c.playerSunkNote];
-        break;
+  /** The fight is over: fight out any boarding, then show the outcome (spec §8, §9). */
+  private conclude(combat: CombatState): void {
+    const conclusion = concludeFight(combat);
+    const boarding = 'boarding' in conclusion ? conclusion.boarding : null;
+    if (!boarding) {
+      this.showOutcome(combat, conclusion);
+      return;
     }
-    this.deps.result.show(heading, note, () => this.finish());
+    const outcome = combat.outcome;
+    const playerAttacks = outcome?.type === 'boarding' && outcome.attacker === 0;
+    const [player, enemy] = combat.ships;
+    this.meleeStartSec = this.timeSec;
+    this.deps.boarding.show(
+      boarding,
+      playerAttacks,
+      { ours: player.condition.crew, theirs: enemy.condition.crew },
+      conclusion.kind === 'prize',
+      () => {
+        this.deps.boarding.hide();
+        this.showOutcome(combat, conclusion);
+      },
+    );
   }
 
-  private finish(): void {
-    const { session } = this.deps;
-    const combat = this.combat;
-    const encounter = session.encounter;
-    if (combat && encounter) {
-      session.voyage = applyCombatResult(
-        session.voyage,
-        this.deps.scene.world,
-        encounter.npcId,
-        combat,
-      );
+  private showOutcome(combat: CombatState, conclusion: Conclusion): void {
+    const c = STRINGS.combat;
+    const { session, scene } = this.deps;
+    const npc = this.npc!;
+    const world = scene.world;
+    switch (conclusion.kind) {
+      case 'prize': {
+        const playerCrew = survivingPlayerCrew(combat, conclusion.boarding);
+        const enemyCrew = survivingEnemyCrew(combat, conclusion.boarding);
+        const classId = session.voyage.ship.classId;
+        const prize = rollPrize(npc, enemyCrew, classId, playerCrew, combat.rng);
+        const enemyCondition = { ...combat.ships[1].condition, crew: enemyCrew };
+        this.deps.prize.show(
+          {
+            shipName: npc.name,
+            plunderLine: c.plunder(formatGold(prize.plunder)),
+            recruitsLine: c.recruits(prize.recruits),
+            comparison: compareShips(classId, npc.classId),
+          },
+          (choice: PrizeChoice) =>
+            this.finish((v) =>
+              applyPrize(v, combat, npc, prize, playerCrew, enemyCondition, choice),
+            ),
+        );
+        return;
+      }
+      case 'enemySunk':
+        this.deps.result.show(c.enemySunk, [c.noPlunder], () =>
+          this.finish((v) => applyEnemySunk(v, combat, npc)),
+        );
+        return;
+      case 'enemyEscaped':
+        this.deps.result.show(c.enemyEscaped, [], () =>
+          this.finish((v) => applyEnemyEscaped(v, combat, npc.id)),
+        );
+        return;
+      case 'playerEscaped':
+        this.deps.result.show(c.playerEscaped, [], () =>
+          this.finish((v) => applyPlayerEscaped(v, world, combat, npc.id)),
+        );
+        return;
+      case 'defeat': {
+        const v = session.voyage;
+        const port = nearestFriendlyPort(scene.ports, v.ship.x, v.ship.y);
+        const lost = v.gold - Math.floor(v.gold * DEFEAT_GOLD_KEPT_SHARE);
+        this.deps.result.show(
+          c.playerSunk,
+          [
+            c.goldLost(formatGold(lost)),
+            c.putAshore(port.def.name, DEFEAT_CREW),
+            c.daysPass(DEFEAT_DAYS),
+          ],
+          () => this.finish((next) => applyDefeat(next, world, scene.ports, npc.id)),
+        );
+        return;
+      }
     }
+  }
+
+  /** Apply the outcome to the voyage, save, and return to sea (spec §8: after every outcome). */
+  private finish(apply: (voyage: Session['voyage']) => Session['voyage']): void {
+    const { session } = this.deps;
+    session.voyage = apply(session.voyage);
     session.encounter = null;
     this.deps.save();
     this.deps.switchMode('sailing');

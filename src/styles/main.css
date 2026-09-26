@@ -844,6 +844,24 @@ canvas.labels {
   outline-color: var(--ink);
 }
 
+.boarding-count {
+  margin: 4px 0;
+  font-family: var(--font-numerals);
+  font-size: 1.6rem;
+}
+
+.boarding-hint {
+  margin: 6px 0 0;
+  font-family: var(--font-period);
+  font-style: italic;
+  font-size: 0.95rem;
+  opacity: 0.75;
+}
+
+.prize-actions {
+  grid-template-columns: 1fr;
+}
+
 /* ---- Shipwright ------------------------------------------------------- */
 
 .shipwright-screen {

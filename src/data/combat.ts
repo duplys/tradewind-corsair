@@ -65,14 +65,29 @@ export const COMBAT_GAME_HOURS = 6;
 /** Range is shown in yards: combat px × 3 (flavour only). */
 export const YARDS_PER_COMBAT_PX = 3;
 
-// ---- Returning to the world map (interim until the outcome screens, ADR 012) ----
-/** The player moves this far along their heading after slipping away (spec §8.4). */
+// ---- Outcomes (§8) ----
+/** The player moves this far along their heading after slipping away (§8.4). */
 export const PLAYER_ESCAPE_SEPARATION_PX = 25;
 /** How long an enemy that got away, or that the player escaped from, ignores the player. */
 export const ENEMY_ESCAPED_IGNORE_HOURS = 48;
 export const PLAYER_ESCAPED_IGNORE_HOURS = 24;
-/** Until boarding and defeat exist (M7): the hull a sunk player's ship is left with. */
-export const INTERIM_DEFEAT_HULL_PCT = 5;
+/** Plunder = cargoValue × rand(0.6, 1.4) × role factor (§8.1). */
+export const PLUNDER_RANGE = [0.6, 1.4] as const;
+export const PLUNDER_ROLE_FACTOR = { trader: 1.0, warship: 0.5, pirate: 0.8 } as const;
+/** Share of the surviving enemy crew who sign on (§8.1). */
+export const RECRUIT_SHARE_RANGE = [0.1, 0.3] as const;
+/** Letting a friendly ship go gives back half the reputation lost by attacking her (§8.1). */
+export const LET_GO_REPUTATION_REFUND = 0.5;
+/** Defeat (§8.3): half the gold is lost; a sound sloop with this crew; this many days pass. */
+export const DEFEAT_GOLD_KEPT_SHARE = 0.5;
+export const DEFEAT_CREW = 12;
+export const DEFEAT_DAYS = 14;
+/** Upwind comparison for "Take her as your ship": the polar at this angle (close-hauled). */
+export const UPWIND_COMPARE_REL_DEG = 135;
+
+// ---- Boarding overlay (§9) ----
+/** One melee round is shown every this many seconds (about 3 s for a long fight). */
+export const MELEE_ROUND_SEC = 0.12;
 
 // ---- Combat AI (§7) ----
 /** Fire a side when the target is within this angle of its beam and this close. */

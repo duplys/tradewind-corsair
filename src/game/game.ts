@@ -14,7 +14,9 @@ import type { Navigator } from '../sim/npc/navigator';
 import type { Port } from '../sim/world/ports';
 import type { World } from '../sim/world/world';
 import { ChartOverlay } from '../ui/chartOverlay';
+import { BoardingOverlay } from '../ui/boardingOverlay';
 import { CombatResultCard } from '../ui/combatResult';
+import { PrizeScreen } from '../ui/prizeScreen';
 import { CombatHud } from '../ui/combatHud';
 import { PauseOverlay } from '../ui/pauseOverlay';
 import { ContextPrompt } from '../ui/contextPrompt';
@@ -47,6 +49,8 @@ export class Game {
   private readonly prompt = new ContextPrompt(() => this.input.press('confirm'));
   private readonly encounterDialog = new EncounterDialog();
   private readonly combatResult = new CombatResultCard();
+  private readonly boardingOverlay = new BoardingOverlay();
+  private readonly prizeScreen = new PrizeScreen();
   private readonly combatHud = new CombatHud(() => this.input.press('pause'));
   private readonly pauseOverlay = new PauseOverlay();
   private readonly portScreen = new PortScreen(() => this.input.press('confirm'));
@@ -126,6 +130,8 @@ export class Game {
         hud: this.combatHud,
         pause: this.pauseOverlay,
         result: this.combatResult,
+        boarding: this.boardingOverlay,
+        prize: this.prizeScreen,
         messages: this.messages,
         touch: this.touch,
         switchMode,
@@ -152,6 +158,8 @@ export class Game {
     this.combatHud.attach(root);
     this.pauseOverlay.attach(root);
     this.combatResult.attach(root);
+    this.boardingOverlay.attach(root);
+    this.prizeScreen.attach(root);
     this.titleScreen.attach(root);
     this.resize();
     this.keyboard.attach();
