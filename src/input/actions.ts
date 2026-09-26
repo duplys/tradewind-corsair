@@ -12,6 +12,8 @@ export type Action =
   /** Combat: fire the port or starboard broadside (Q, E). */
   | 'firePort'
   | 'fireStarboard'
+  /** Combat: pause or resume (P; Esc also pauses, spec §6.1). */
+  | 'pause'
   /** Dev builds only (K): damage the player's ship, to test the HUD and repairs. */
   | 'debugDamage';
 
@@ -29,6 +31,7 @@ export function createHeldActions(): HeldActions {
     close: false,
     firePort: false,
     fireStarboard: false,
+    pause: false,
     debugDamage: false,
   };
 }

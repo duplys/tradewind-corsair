@@ -15,7 +15,8 @@ import type { Port } from '../sim/world/ports';
 import type { World } from '../sim/world/world';
 import { ChartOverlay } from '../ui/chartOverlay';
 import { CombatResultCard } from '../ui/combatResult';
-import { CombatStatus } from '../ui/combatStatus';
+import { CombatHud } from '../ui/combatHud';
+import { PauseOverlay } from '../ui/pauseOverlay';
 import { ContextPrompt } from '../ui/contextPrompt';
 import { EncounterDialog } from '../ui/encounterDialog';
 import { Hud } from '../ui/hud';
@@ -46,7 +47,8 @@ export class Game {
   private readonly prompt = new ContextPrompt(() => this.input.press('confirm'));
   private readonly encounterDialog = new EncounterDialog();
   private readonly combatResult = new CombatResultCard();
-  private readonly combatStatus = new CombatStatus();
+  private readonly combatHud = new CombatHud(() => this.input.press('pause'));
+  private readonly pauseOverlay = new PauseOverlay();
   private readonly portScreen = new PortScreen(() => this.input.press('confirm'));
   private readonly shipwright = new ShipwrightPanel();
   private readonly titleScreen = new TitleScreen();
@@ -57,7 +59,9 @@ export class Game {
   private readonly loop: Loop;
   private readonly onResize = (): void => this.resize();
   private readonly onVisibility = (): void => {
-    if (document.visibilityState === 'hidden') this.autoSave();
+    if (document.visibilityState !== 'hidden') return;
+    this.modes.current?.onHidden?.();
+    this.autoSave();
   };
 
   constructor(world: World, map: HTMLCanvasElement, ports: readonly Port[], nav: Navigator) {
@@ -119,7 +123,8 @@ export class Game {
         scene,
         session,
         held: this.input.held,
-        status: this.combatStatus,
+        hud: this.combatHud,
+        pause: this.pauseOverlay,
         result: this.combatResult,
         messages: this.messages,
         touch: this.touch,
@@ -144,7 +149,8 @@ export class Game {
     this.shipwright.attach(root);
     this.chart.attach(root);
     this.encounterDialog.attach(root);
-    this.combatStatus.attach(root);
+    this.combatHud.attach(root);
+    this.pauseOverlay.attach(root);
     this.combatResult.attach(root);
     this.titleScreen.attach(root);
     this.resize();

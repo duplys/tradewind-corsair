@@ -23,6 +23,7 @@ function makeButton(text: string, label: string, className: string): HTMLButtonE
  */
 export class TouchControls {
   private readonly root = document.createElement('div');
+  private readonly fire: HTMLButtonElement;
   private readonly held;
 
   constructor(private readonly input: Input) {
@@ -42,7 +43,14 @@ export class TouchControls {
       this.tapButton(STRINGS.touch.reef, STRINGS.touch.reefLabel, 'reef'),
       this.tapButton(STRINGS.touch.hoist, STRINGS.touch.hoistLabel, 'hoist'),
     );
-    this.root.append(turn, sail);
+    // Combat only: a large Fire button for the broadside that bears (spec §10.3).
+    this.fire = this.tapButton(STRINGS.combat.fire, STRINGS.combat.fireLabel, 'confirm');
+    this.fire.classList.add('touch-fire');
+    this.fire.hidden = true;
+    const right = document.createElement('div');
+    right.className = 'touch-right';
+    right.append(sail, this.fire);
+    this.root.append(turn, right);
     this.root.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
@@ -57,6 +65,12 @@ export class TouchControls {
   hide(): void {
     this.root.hidden = true;
     this.input.clearSource('touch');
+  }
+
+  /** Sailing layout, or combat: Hoist and Reef stacked above a large Fire button. */
+  setCombat(combat: boolean): void {
+    this.fire.hidden = !combat;
+    this.root.classList.toggle('is-combat', combat);
   }
 
   private holdButton(text: string, label: string, action: Action): HTMLButtonElement {

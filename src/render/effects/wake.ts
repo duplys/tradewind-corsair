@@ -22,6 +22,9 @@ interface WakeSource {
  * age. Fixed-size ring buffer, so no per-frame allocation.
  */
 export class Wake {
+  /** Distance from the ship's centre to where the wake starts (half the hull length). */
+  constructor(private readonly sternOffsetPx: number = STERN_OFFSET_PX) {}
+
   private readonly x = new Float32Array(CAPACITY);
   private readonly y = new Float32Array(CAPACITY);
   private readonly nx = new Float32Array(CAPACITY);
@@ -37,8 +40,8 @@ export class Wake {
     const cos = Math.cos(ship.headingRad);
     const sin = Math.sin(ship.headingRad);
     const i = this.next;
-    this.x[i] = ship.x - cos * STERN_OFFSET_PX;
-    this.y[i] = ship.y - sin * STERN_OFFSET_PX;
+    this.x[i] = ship.x - cos * this.sternOffsetPx;
+    this.y[i] = ship.y - sin * this.sternOffsetPx;
     this.nx[i] = -sin;
     this.ny[i] = cos;
     this.born[i] = nowSec;

@@ -21,6 +21,8 @@ function actionForKey(e: KeyboardEvent): Action | null {
       return 'firePort';
     case 'KeyE':
       return 'fireStarboard';
+    case 'KeyP':
+      return 'pause';
     case 'Enter':
     case 'NumpadEnter':
     case 'Space':

@@ -586,26 +586,191 @@ canvas.labels {
   left: 0;
 }
 
-/* ---- Combat (interim status panel until the combat HUD, M6) ------------ */
+/* ---- Combat HUD (slice 2 spec §10.3) ------------------------------------ */
 
-.combat-status {
+.combat-hud {
   position: absolute;
+  inset: 0;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.combat-hud .panel,
+.combat-hud button {
+  position: absolute;
+  pointer-events: auto;
+}
+
+.combat-own,
+.combat-enemy {
   top: calc(var(--safe-top) + var(--edge));
-  left: calc(var(--safe-left) + var(--edge));
-  right: calc(var(--safe-right) + var(--edge));
-  max-width: 34rem;
+  display: flex;
+  gap: 8px;
   padding: 6px 10px;
+  max-width: calc(50% - 44px);
+  box-sizing: border-box;
+}
+
+.combat-own {
+  left: calc(var(--safe-left) + var(--edge));
+  align-items: flex-start;
+}
+
+.combat-enemy {
+  right: calc(var(--safe-right) + var(--edge));
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.combat-enemy-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.combat-name {
+  font-family: var(--font-period-sc);
+  font-size: 15px;
+  line-height: 1.1;
+}
+
+.combat-line {
   font-family: var(--font-numerals);
   font-size: 17px;
-  line-height: 1.15;
+  line-height: 1;
+}
+
+.combat-compass {
+  flex: none;
+}
+
+.combat-pause {
+  top: calc(var(--safe-top) + var(--edge));
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 56px;
+  min-height: 56px;
+  margin: 0;
+  background: var(--panel);
+  font-size: 22px;
+}
+
+.combat-guns {
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + var(--edge));
+  transform: translateX(-50%);
+  display: grid;
+  gap: 3px;
+  padding: 6px 10px;
+  text-align: center;
+}
+
+.combat-range {
+  font-family: var(--font-numerals);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.reload {
+  display: grid;
+  grid-template-columns: 5.5em auto;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 3px;
+  border: 1px solid transparent;
+}
+
+.reload-label {
+  font-family: var(--font-period-sc);
+  font-size: 13px;
+  text-transform: uppercase;
+  text-align: right;
+}
+
+.reload-bar {
+  display: inline-grid;
+  grid-template-columns: repeat(10, 7px);
+  gap: 1px;
+  padding: 1px;
+  background: var(--ink);
+}
+
+.reload-segment {
+  height: 7px;
+  background: rgba(234, 220, 180, 0.12);
+}
+
+.reload-segment.is-filled {
+  background: var(--parchment-shade);
+}
+
+.reload.is-ready .reload-segment {
+  background: var(--brass);
+  box-shadow: 0 0 3px var(--brass);
+}
+
+/* The side that bears on the enemy. */
+.reload.is-bearing {
+  border-color: var(--brass);
+}
+
+/* Fire was ordered before this side was ready. */
+.reload.is-flashing {
+  background: rgba(200, 65, 46, 0.5);
+}
+
+/* In combat the message line sits above the gun panel, which sits above the touch controls. */
+#app:has(.combat-hud:not([hidden])) .message-line {
+  bottom: calc(var(--safe-bottom) + var(--edge) + 84px);
+}
+
+.has-touch .combat-guns {
+  bottom: calc(var(--safe-bottom) + var(--edge) + 180px);
+}
+
+#app.has-touch:has(.combat-hud:not([hidden])) .message-line {
+  bottom: calc(var(--safe-bottom) + var(--edge) + 254px);
+}
+
+/* Combat touch layout: Hoist and Reef stacked above a large Fire button. */
+.touch-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
   pointer-events: none;
 }
 
-.combat-keys {
-  margin-top: 4px;
-  font-family: var(--font-period);
-  font-size: 13px;
-  opacity: 0.8;
+.touch-right > * {
+  pointer-events: auto;
+}
+
+.touch-controls.is-combat {
+  align-items: flex-end;
+}
+
+.touch-fire {
+  min-width: 96px;
+  min-height: 96px;
+  border-width: 2px;
+  font-size: 24px;
+  background: rgba(122, 30, 18, 0.85);
+}
+
+@media (max-width: 560px) {
+  .combat-own .combat-compass {
+    display: none;
+  }
+
+  .combat-name {
+    font-size: 13px;
+  }
+
+  .combat-line {
+    font-size: 15px;
+  }
 }
 
 /* ---- Encounter dialog -------------------------------------------------- */

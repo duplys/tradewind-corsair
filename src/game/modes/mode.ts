@@ -14,6 +14,8 @@ export interface Mode {
   handleAction(action: Action): void;
   update(dtSec: number): void;
   render(ctx: CanvasRenderingContext2D): void;
+  /** The page was hidden (tab switched, phone locked). Combat pauses (spec §6.1). */
+  onHidden?(): void;
 }
 
 /** Lets a mode ask the game to switch to another mode. */

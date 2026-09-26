@@ -78,6 +78,8 @@ export const SHIP_COLORS = {
   mast: '#2b1a0e',
 } as const;
 export const SPRITE_OUTLINE = '#10213a';
+/** Gunports along the sides of combat sprites. */
+export const GUNPORT_COLOR = '#24160c';
 /** A lighter deck block for raised sterncastles (fluyt, galleon). */
 export const STERNCASTLE_COLOR = '#a8763e';
 /** Sail colour by NPC role (slice 2 spec §4.5); the player keeps SHIP_COLORS.sail. */
@@ -153,4 +155,17 @@ export const COMBAT_COLORS = {
   ball: '#1a1410',
   ballTrail: '#6b5a48',
   splash: '#e8f2f4',
+} as const;
+
+/** Combat effects (spec §10.2). */
+export const EFFECT_COLORS = {
+  smoke: '#d8d6d0',
+  splinter: '#7a4f2a',
+  canvas: '#efe6cc',
+  bubble: '#dff1f5',
+  debris: '#6b4423',
+  swell: 'rgba(8, 24, 48, 0.35)',
+  horizon: 'rgba(4, 10, 22, 0.55)',
+  pointer: '#e9d9a6',
+  sinkingWater: '#173f69',
 } as const;

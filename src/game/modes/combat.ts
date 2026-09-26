@@ -1,30 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-only
-import { NATIONS } from '../../data/nations';
 import { SHIP_CLASSES } from '../../data/ships';
 import { STRINGS } from '../../data/strings';
 import type { Action, HeldActions } from '../../input/actions';
 import type { TouchControls } from '../../input/touch';
-import { drawCombatScene, SplashRing } from '../../render/combatScene';
+import { CombatScene } from '../../render/combatScene';
+import type { NpcLabel } from '../../render/labels';
 import type { SeaScene } from '../../render/scene';
+import { decide } from '../../sim/combat/ai';
 import { applyCombatResult } from '../../sim/combat/result';
 import { createCombat, type CombatState } from '../../sim/combat/state';
-import { decide } from '../../sim/combat/ai';
-import { stepCombat, type CombatEvent, type CombatInput } from '../../sim/combat/step';
-import type { NpcShip } from '../../sim/npc/npc';
+import { stepCombat, surrender, type CombatEvent, type CombatInput } from '../../sim/combat/step';
 import { restoreRng } from '../../sim/rng';
 import { windAt } from '../../sim/sailing/wind';
+import type { CombatHud } from '../../ui/combatHud';
 import type { CombatResultCard } from '../../ui/combatResult';
-import type { CombatStatus } from '../../ui/combatStatus';
+import { yards } from '../../ui/combatText';
 import type { MessageLine } from '../../ui/messageLine';
+import type { PauseOverlay } from '../../ui/pauseOverlay';
 import type { Session } from '../session';
 import type { Mode, SwitchMode } from './mode';
-
-/** "San Telmo (Spanish fluyt)". */
-function describeEnemy(npc: NpcShip): string {
-  const cls = SHIP_CLASSES[npc.classId].name.toLowerCase();
-  const who = npc.nation === 'pirate' ? STRINGS.npc.pirate : NATIONS[npc.nation].adjective;
-  return `${npc.name} (${STRINGS.npc.label(who, cls)})`;
-}
 
 /** Player hull below this brings the "taking water" warning (spec §10.3). */
 const TAKING_WATER_PCT = 30;
@@ -35,7 +29,8 @@ export interface CombatDeps {
   readonly scene: SeaScene;
   readonly session: Session;
   readonly held: Readonly<HeldActions>;
-  readonly status: CombatStatus;
+  readonly hud: CombatHud;
+  readonly pause: PauseOverlay;
   readonly result: CombatResultCard;
   readonly messages: MessageLine;
   readonly touch: TouchControls | null;
@@ -45,22 +40,26 @@ export interface CombatDeps {
 }
 
 /**
- * Ship combat (slice 2 spec §6): the player against an enemy sailed by the combat AI (§7). A
- * result card stands in for the outcome screens of M7.
+ * Ship combat (slice 2 spec §6, §10): the player against an enemy sailed by the combat AI, with
+ * the combat HUD, effects and a pause overlay. A result card stands in for the outcome screens
+ * of M7.
  */
 export class CombatMode implements Mode {
   readonly id = 'combat';
   private combat: CombatState | null = null;
-  private npc: NpcShip | null = null;
-  private enemyName = '';
   private timeSec = 0;
   private sail: -1 | 0 | 1 = 0;
   private fire: CombatInput['fire'] = null;
+  private paused = false;
   private warnedWater = false;
   private warnedGrapples = false;
-  private readonly splashes = new SplashRing();
+  private readonly view: CombatScene;
+  /** Reused every frame for the pointer's range label. */
+  private readonly pointerLabels: NpcLabel[] = [];
 
-  constructor(private readonly deps: CombatDeps) {}
+  constructor(private readonly deps: CombatDeps) {
+    this.view = new CombatScene(deps.scene.sprites);
+  }
 
   enter(): void {
     const { session } = this.deps;
@@ -77,8 +76,6 @@ export class CombatMode implements Mode {
     const rng = worldRng.fork('combat');
     session.voyage = { ...voyage, rngState: worldRng.state() };
     const { ship } = voyage;
-    this.npc = npc;
-    this.enemyName = describeEnemy(npc);
     this.combat = createCombat({
       player: {
         classId: ship.classId,
@@ -101,22 +98,33 @@ export class CombatMode implements Mode {
       bearingToEnemyRad: Math.atan2(npc.ship.y - ship.y, npc.ship.x - ship.x),
       escapeFailed: encounter.escapeFailed,
     });
+    this.timeSec = 0;
     this.sail = 0;
     this.fire = null;
+    this.paused = false;
     this.warnedWater = false;
     this.warnedGrapples = false;
-    this.splashes.clear();
-    this.deps.status.show();
+    this.view.reset(this.combat, npc.nation, npc.id * 7919 + 17);
+    this.deps.scene.labels.clear();
+    this.deps.hud.show(voyage.shipName, SHIP_CLASSES[ship.classId].name, npc);
+    this.deps.touch?.setCombat(true);
     this.deps.touch?.show();
   }
 
   exit(): void {
-    this.deps.status.hide();
+    this.deps.hud.hide();
+    this.deps.pause.hide();
     this.deps.result.hide();
     this.deps.touch?.hide();
+    this.deps.touch?.setCombat(false);
     this.deps.messages.hide();
+    this.deps.scene.labels.clear();
     this.combat = null;
-    this.npc = null;
+  }
+
+  /** The tab was hidden: pause the fight, so the player comes back to the pause overlay. */
+  onHidden(): void {
+    if (this.combat && !this.combat.outcome) this.setPaused(true);
   }
 
   handleAction(action: Action): void {
@@ -124,6 +132,11 @@ export class CombatMode implements Mode {
       if (action === 'close') this.finish();
       return;
     }
+    if (action === 'pause' || action === 'close') {
+      this.setPaused(!this.paused);
+      return;
+    }
+    if (this.paused) return;
     if (action === 'hoist') this.sail = 1;
     else if (action === 'reef') this.sail = -1;
     else if (action === 'firePort') this.fire = 'port';
@@ -133,7 +146,7 @@ export class CombatMode implements Mode {
 
   update(dtSec: number): void {
     const combat = this.combat;
-    if (!combat || combat.outcome) return;
+    if (!combat || combat.outcome || this.paused) return;
     this.timeSec += dtSec;
     const { held } = this.deps;
     const input: CombatInput = {
@@ -151,31 +164,59 @@ export class CombatMode implements Mode {
       decide(combat, 1, enemy.role === 'player' ? 'warship' : enemy.role),
       dtSec,
     );
-    for (const event of events) this.react(event);
+    for (const event of events) this.react(event, combat);
+    this.view.update(combat, dtSec, this.timeSec);
     this.warnings(combat);
     if (combat.outcome) this.showResult(combat);
   }
 
   render(ctx: CanvasRenderingContext2D): void {
     const combat = this.combat;
-    if (!combat || !this.npc) return;
-    drawCombatScene(ctx, combat, this.deps.scene.sprites, this.splashes, this.timeSec);
-    this.deps.status.update(
-      combat,
-      this.deps.session.voyage.shipName,
-      this.enemyName,
-      this.timeSec,
-    );
+    if (!combat) return;
+    const { scene } = this.deps;
+    const drawn = this.view.draw(ctx, combat, this.timeSec, scene.reducedMotion());
+    this.pointerLabels.length = 0;
+    if (drawn.pointer) {
+      this.pointerLabels.push({
+        x: drawn.pointer.x,
+        y: drawn.pointer.y,
+        text: STRINGS.combat.yards(yards(drawn.pointer.rangePx)),
+        hostile: false,
+        alpha: 1,
+      });
+    }
+    scene.labels.draw(drawn.cam, scene.view.scale, [], this.pointerLabels);
+    this.deps.hud.update(combat, this.timeSec);
     this.deps.messages.update(this.timeSec);
   }
 
-  private react(event: CombatEvent): void {
+  private setPaused(paused: boolean): void {
+    this.paused = paused;
+    if (!paused) {
+      this.deps.pause.hide();
+      return;
+    }
+    const enemy = this.combat?.ships[1];
+    this.deps.pause.show(enemy?.role !== 'trader', {
+      onResume: () => this.setPaused(false),
+      onSurrender: () => {
+        if (this.combat) surrender(this.combat);
+        this.deps.pause.hide();
+        this.paused = false;
+        if (this.combat) this.showResult(this.combat);
+      },
+    });
+  }
+
+  private react(event: CombatEvent, combat: CombatState): void {
     const { messages } = this.deps;
-    if (event.type === 'splash') this.splashes.add(event.x, event.y, this.timeSec);
-    else if (event.type === 'hit' && event.ship === 1 && event.location === 'rigging') {
+    this.view.react(event, combat, this.timeSec);
+    if (event.type === 'hit' && event.ship === 1 && event.location === 'rigging') {
       messages.show(STRINGS.combat.mastDamaged, this.timeSec);
     } else if (event.type === 'struck' && event.ship === 1) {
       messages.show(STRINGS.combat.striking, this.timeSec);
+    } else if (event.type === 'notReady' && event.ship === 0) {
+      this.deps.hud.flash(event.side, this.timeSec);
     }
   }
 
