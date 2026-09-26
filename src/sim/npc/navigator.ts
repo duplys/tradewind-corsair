@@ -94,6 +94,16 @@ export class Navigator {
     return path;
   }
 
+  /**
+   * Compute every port-to-port path now (spec §12: the grid and the path cache are built at
+   * load), so spawning ships never has to plan a sea lane mid-game.
+   */
+  warmPortPaths(): void {
+    for (const a of this.ports) {
+      for (const b of this.ports) if (a !== b) this.portPath(a.def.id, b.def.id);
+    }
+  }
+
   /** A random navigable cell centre within `radiusPx` of a point, or null. */
   randomCellNear(point: WorldPoint, radiusPx: number, rng: Rng): WorldPoint | null {
     const cells = this.cellsWithin(point, 0, radiusPx);

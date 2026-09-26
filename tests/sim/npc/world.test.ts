@@ -50,8 +50,10 @@ function run(
 const EMPTY: NpcWorldState = { npcs: [], nextNpcId: 1, rngState: 1234 };
 
 describe('stepNpcWorld', () => {
-  it('fills the waters around the player to six ships at the first spawn check', () => {
-    const { state } = run(EMPTY, bridgetown, 1);
+  it('fills the waters around the player to six ships, two per spawn check', () => {
+    const first = run(EMPTY, bridgetown, 0.6).state; // one check (every 2 game hours = 0.5 s)
+    expect(first.npcs.length).toBe(2);
+    const { state } = run(EMPTY, bridgetown, 1.6); // three checks
     const near = state.npcs.filter(
       (n) => Math.hypot(n.ship.x - bridgetown.x, n.ship.y - bridgetown.y) <= 250,
     );

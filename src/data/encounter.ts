@@ -26,7 +26,7 @@ export const ESCAPE_SEPARATION_PX = 20;
 
 /** Escape chance = clamp(BASE + (vPlayer − vEnemy) / DIVISOR, MIN, MAX). Speeds in knots. */
 export const ESCAPE_BASE = 0.5;
-export const ESCAPE_SPEED_DIVISOR_KN = 6;
+export const ESCAPE_SPEED_DIVISOR_KN = 3;
 export const ESCAPE_MIN = 0.1;
 export const ESCAPE_MAX = 0.9;
 /** Headings are sampled this far apart when finding the best speed made good. */

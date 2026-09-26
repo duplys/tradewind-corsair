@@ -24,6 +24,11 @@ export const NPC_CHART_RANGE_PX = 250;
 /** Never more NPCs than this on the map at once (performance budget, §12). */
 export const NPC_MAX = 10;
 export const NPC_SPAWN_CHECK_HOURS = 2;
+/**
+ * At most this many ships appear per check, so route planning never costs a frame more than a
+ * couple of paths (spec §12). A fresh voyage fills up over three checks (1.5 s) instead of one.
+ */
+export const NPC_MAX_SPAWNS_PER_CHECK = 2;
 export const NPC_SPAWN_MIN_PX = 140;
 export const NPC_SPAWN_MAX_PX = 240;
 /** Share of spawns placed on a sea lane between two ports. */

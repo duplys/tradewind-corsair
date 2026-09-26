@@ -3,6 +3,7 @@ import {
   NPC_AI_TICK_HOURS,
   NPC_DESPAWN_PX,
   NPC_MAX,
+  NPC_MAX_SPAWNS_PER_CHECK,
   NPC_NEARBY_RADIUS_PX,
   NPC_SPAWN_CHECK_HOURS,
   NPC_TARGET_NEARBY,
@@ -98,9 +99,15 @@ export function stepNpcWorld(
   let spawned: number[] | null = null;
   if (crossed(ctx.hoursBefore, hoursAfter, NPC_SPAWN_CHECK_HOURS)) {
     let nearby = npcs.filter((n) => dist(n.ship, player) <= NPC_NEARBY_RADIUS_PX).length;
-    let attempts = 2 * NPC_TARGET_NEARBY;
+    let attempts = 2 * NPC_MAX_SPAWNS_PER_CHECK;
+    let spawnedNow = 0;
     const namesInUse = new Set(npcs.map((n) => n.name));
-    while (nearby < NPC_TARGET_NEARBY && npcs.length < NPC_MAX && attempts-- > 0) {
+    while (
+      nearby < NPC_TARGET_NEARBY &&
+      npcs.length < NPC_MAX &&
+      spawnedNow < NPC_MAX_SPAWNS_PER_CHECK &&
+      attempts-- > 0
+    ) {
       const npc = spawnNpc({
         nav,
         player,
@@ -115,6 +122,7 @@ export function stepNpcWorld(
       (spawned ??= []).push(npc.id);
       nextNpcId++;
       nearby++;
+      spawnedNow++;
     }
   }
 

@@ -38,16 +38,16 @@ describe('escapeChance', () => {
       { ...frigate, at: { x: 0, y: 0 } },
       EASTERLY,
     );
-    expect(p).toBeGreaterThan(0.6);
+    expect(p).toBeGreaterThanOrEqual(0.85);
   });
 
-  it('makes running downwind from a frigate a poor bet', () => {
+  it('makes running downwind from a frigate rarely work', () => {
     const p = escapeChance(
       { ...sloop, at: { x: 0, y: 0 } },
       { ...frigate, at: { x: 100, y: 0 } },
       EASTERLY,
     );
-    expect(p).toBeLessThan(0.5);
+    expect(p).toBeLessThan(0.3);
   });
 
   it('is 0.5 for identical ships and stays within 0.1–0.9', () => {

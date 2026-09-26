@@ -33,8 +33,11 @@ async function boot(): Promise<void> {
   const map = createMapCanvas(world, ports, MAP_SEED);
   const navStarted = performance.now();
   const nav = new Navigator(world, ports);
+  nav.warmPortPaths();
   if (import.meta.env.DEV) {
-    console.info(`Navigation grid built in ${Math.round(performance.now() - navStarted)} ms`);
+    console.info(
+      `Navigation grid and sea lanes built in ${Math.round(performance.now() - navStarted)} ms`,
+    );
   }
   const game = new Game(world, map, ports, nav);
   loading.remove();
