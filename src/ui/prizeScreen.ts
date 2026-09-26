@@ -7,7 +7,7 @@ export interface PrizeView {
   readonly shipName: string;
   readonly plunderLine: string;
   readonly recruitsLine: string;
-  /** "Frigate: 28 guns, 8 kn. Slower upwind than your sloop." */
+  /** "Frigate: 28 guns, 8 kn (your sloop 9 kn). Slower upwind than your sloop. …" */
   readonly comparison: string;
 }
 
@@ -18,6 +18,7 @@ export class PrizeScreen {
   private readonly heading = el('h2', 'encounter-heading');
   private readonly plunder = el('p', 'encounter-relation');
   private readonly recruits = el('p', 'encounter-relation');
+  private readonly lootKept = el('p', 'encounter-relation', STRINGS.combat.lootKept);
   private readonly comparison = el('p', 'encounter-strength');
   private readonly take = button('parchment-button prize-take', STRINGS.combat.take);
   private readonly sink = button('parchment-button', STRINGS.combat.sink);
@@ -36,7 +37,14 @@ export class PrizeScreen {
     this.letGo.addEventListener('click', () => this.onChoice?.('letGo'));
     const actions = el('div', 'encounter-actions prize-actions');
     actions.append(this.take, this.sink, this.letGo);
-    this.card.append(this.heading, this.plunder, this.recruits, this.comparison, actions);
+    this.card.append(
+      this.heading,
+      this.plunder,
+      this.recruits,
+      this.lootKept,
+      this.comparison,
+      actions,
+    );
     this.root.append(this.card);
   }
 

@@ -162,8 +162,17 @@ export const STRINGS = {
     take: 'Take her as your ship',
     sink: 'Sink her',
     letGo: 'Let her go',
-    compare: (className: string, guns: number, knots: number, upwind: string) =>
-      `${className}: ${guns} guns, ${knots} kn. ${upwind}`,
+    lootKept: 'The plunder and recruits are yours whichever you choose.',
+    compare: (
+      className: string,
+      guns: number,
+      knots: number,
+      currentName: string,
+      currentKnots: number,
+      upwind: string,
+    ) =>
+      `${className}: ${guns} guns, ${knots} kn (your ${currentName} ${currentKnots} kn). ${upwind}`,
+    slowerWarning: 'Warships will be hard to outrun in her.',
     upwindWorse: (current: string) => `Slower upwind than your ${current}.`,
     upwindBetter: (current: string) => `Better upwind than your ${current}.`,
     upwindSame: (current: string) => `As weatherly as your ${current}.`,
