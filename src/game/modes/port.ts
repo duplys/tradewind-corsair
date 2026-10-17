@@ -12,6 +12,9 @@ import {
 } from '../../data/tavern';
 import type { Action } from '../../input/actions';
 import { drawSeaScene, type SeaScene } from '../../render/scene';
+import { claimable, claimBounty, rankOf, standingLabel } from '../../sim/governor/governor';
+import { NATIONS, type NationId } from '../../data/nations';
+import { CROWN_NATION } from '../../data/governor';
 import { restoreRng } from '../../sim/rng';
 import { windAt } from '../../sim/sailing/wind';
 import {
@@ -30,6 +33,7 @@ import { buyGoods, cargoUsed, holdCapacityOf, maxBuyable, sellGoods } from '../.
 import { repairShip, setSailFrom } from '../../sim/voyage';
 import { findPort, type Port } from '../../sim/world/ports';
 import { formatGold } from '../../ui/format';
+import type { GovernorPanel, GovernorView } from '../../ui/governorPanel';
 import type { PortScreen } from '../../ui/portScreen';
 import type { ShipwrightPanel, ShipwrightView } from '../../ui/shipwrightPanel';
 import { rumourText } from '../../ui/tavernText';
@@ -43,6 +47,7 @@ export interface PortDeps {
   readonly session: Session;
   readonly portScreen: PortScreen;
   readonly shipwright: ShipwrightPanel;
+  readonly governor: GovernorPanel;
   readonly merchant: TradePanel;
   readonly tavern: TavernPanel;
   readonly switchMode: SwitchMode;
@@ -51,7 +56,7 @@ export interface PortDeps {
 }
 
 type RepairKind = 'all' | 'affordable' | 'guns';
-type PortPanel = 'shipwright' | 'merchant' | 'tavern';
+type PortPanel = 'shipwright' | 'merchant' | 'tavern' | 'governor';
 
 /** A price this far below (above) the good's usual price is called cheap (dear). */
 const TAG_BAND = 0.12;
@@ -80,6 +85,7 @@ export class PortMode implements Mode {
     const shipwrightOpen = !hostileToPlayer(port.def.nation);
     this.panelNote = '';
     portScreen.show(port, this.dateText(), {
+      onGovernor: shipwrightOpen ? () => this.openGovernor() : null,
       onTavern: () => this.openTavern(),
       onMerchant: () => this.openMerchant(),
       onShipwright: shipwrightOpen ? () => this.openShipwright() : null,
@@ -161,7 +167,8 @@ export class PortMode implements Mode {
   }
 
   private openPanel(): PortPanel | null {
-    const { shipwright, merchant, tavern } = this.deps;
+    const { shipwright, merchant, tavern, governor } = this.deps;
+    if (governor.isOpen) return 'governor';
     if (shipwright.isOpen) return 'shipwright';
     if (merchant.isOpen) return 'merchant';
     if (tavern.isOpen) return 'tavern';
@@ -172,11 +179,54 @@ export class PortMode implements Mode {
     this.deps.shipwright.hide();
     this.deps.merchant.hide();
     this.deps.tavern.hide();
+    this.deps.governor.hide();
   }
 
   private closePanel(): void {
     this.closePanels();
     this.deps.portScreen.focus();
+  }
+
+  // ---- Governor (slice 4 spec §4) ----
+
+  private governorView(): GovernorView {
+    const { voyage } = this.deps.session;
+    const nation = this.port!.def.nation;
+    const rank = rankOf(nation, voyage.claimed[nation]);
+    return {
+      portName: this.port!.def.name,
+      crown: nation === CROWN_NATION,
+      gold: voyage.gold,
+      rankTitle: rank.title,
+      next: rank.next,
+      standing: (Object.keys(NATIONS) as NationId[]).map((id) => ({
+        nation: NATIONS[id].name,
+        label: standingLabel(voyage.reputation[id]),
+      })),
+      owed: claimable(voyage, nation),
+      note: this.panelNote,
+    };
+  }
+
+  private openGovernor(): void {
+    this.panelNote = '';
+    this.deps.governor.show(this.governorView(), {
+      onClaim: () => this.claim(),
+      onBack: () => this.closePanel(),
+    });
+  }
+
+  private claim(): void {
+    const { session } = this.deps;
+    const result = claimBounty(session.voyage, this.port!.def.nation);
+    if (result.gold <= 0) return;
+    session.voyage = result.voyage;
+    const g = STRINGS.governor;
+    this.panelNote = result.promotedTo
+      ? `${g.paid(formatGold(result.gold))} ${g.promoted(result.promotedTo, formatGold(result.promotionGold))}`
+      : g.paid(formatGold(result.gold));
+    this.deps.save();
+    this.deps.governor.update(this.governorView());
   }
 
   // ---- Merchant (slice 4 spec §2) ----

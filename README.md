@@ -26,6 +26,8 @@ The project is in early development. Work proceeds in slices; see `docs/specs/`.
 - **Drink and listen** (slice 4): the Tavern signs on crew, sells rumours (prices, wars,
   pirate sightings) and sells treasure tips. A tip marks a red X on the chart: sail there,
   and dig.
+- **Call on the governor** (slice 4): bring in pirates and ships of Spain for a bounty, win
+  standing and climb the ranks. Governors of ports hostile to England will not see you.
 
 ## Requirements
 

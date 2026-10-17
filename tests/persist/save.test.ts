@@ -141,6 +141,35 @@ describe('save v2, slice 4 fields', () => {
   });
 });
 
+describe('save v2, governor fields', () => {
+  it('round-trips bounty and claimed gold', () => {
+    const v = {
+      ...voyage,
+      bounty: { pirate: 55, crown: 12 },
+      claimed: { es: 0, en: 300, fr: 20, nl: 0 },
+    };
+    const loaded = parseSave(JSON.stringify(toSaveData(v)), ctx)!;
+    expect(loaded.bounty).toEqual(v.bounty);
+    expect(loaded.claimed).toEqual(v.claimed);
+  });
+
+  it('loads an older save without them as nothing owed and nothing claimed', () => {
+    const data = JSON.parse(JSON.stringify(toSaveData(voyage))) as Record<string, unknown>;
+    delete data.bounty;
+    delete data.claimed;
+    const loaded = parseSave(JSON.stringify(data), ctx)!;
+    expect(loaded.bounty).toEqual({ pirate: 0, crown: 0 });
+    expect(loaded.claimed).toEqual({ es: 0, en: 0, fr: 0, nl: 0 });
+  });
+
+  it('rejects negative or malformed amounts', () => {
+    expect(parseSave(v2With({ bounty: { pirate: -1, crown: 0 } }), ctx)).toBeNull();
+    expect(parseSave(v2With({ bounty: { pirate: 1 } }), ctx)).toBeNull();
+    expect(parseSave(v2With({ claimed: { es: 0, en: -5, fr: 0, nl: 0 } }), ctx)).toBeNull();
+    expect(parseSave(v2With({ claimed: { en: 5 } }), ctx)).toBeNull();
+  });
+});
+
 describe('save v2', () => {
   it('round-trips a voyage, including condition, RNG, reputation and stats', () => {
     const loaded = parseSave(JSON.stringify(toSaveData(voyage)), ctx);
@@ -151,7 +180,9 @@ describe('save v2', () => {
     const data = toSaveData(voyage);
     expect(Object.keys(data).sort()).toEqual(
       [
+        'bounty',
         'cargo',
+        'claimed',
         'elapsedHours',
         'gold',
         'hintsShown',

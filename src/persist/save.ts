@@ -10,6 +10,7 @@ import { normaliseAngle } from '../sim/math';
 import type { NpcIntent, NpcShip } from '../sim/npc/npc';
 import { hashString, isRngState } from '../sim/rng';
 import type { FlowEntry, TradeFlow } from '../sim/trade/market';
+import { NO_BOUNTY, type Bounty, type Claimed } from '../sim/governor/governor';
 import type { TreasureSite } from '../sim/tavern/treasure';
 import { cargoUsed, emptyCargo, type Cargo } from '../sim/trade/trade';
 import type { ShipCondition } from '../sim/ships/condition';
@@ -72,6 +73,9 @@ export interface SaveV2 {
   readonly cargo?: Cargo;
   readonly tradeFlow?: TradeFlow;
   readonly treasures?: readonly TreasureSite[];
+  /** Governor fields (optional like the slice 4 ones above). */
+  readonly bounty?: Bounty;
+  readonly claimed?: Claimed;
 }
 
 /** A save after validation: the slice 4 fields are always present. */
@@ -79,6 +83,8 @@ export type ValidSave = SaveV2 & {
   readonly cargo: Cargo;
   readonly tradeFlow: TradeFlow;
   readonly treasures: readonly TreasureSite[];
+  readonly bounty: Bounty;
+  readonly claimed: Claimed;
 };
 
 export function toSaveData(voyage: Voyage): ValidSave {
@@ -107,6 +113,8 @@ export function toSaveData(voyage: Voyage): ValidSave {
     cargo: { ...voyage.cargo },
     tradeFlow: voyage.tradeFlow,
     treasures: voyage.treasures,
+    bounty: voyage.bounty,
+    claimed: { ...voyage.claimed },
   };
 }
 
@@ -357,6 +365,28 @@ function validateTreasures(raw: unknown, ctx: SaveContext): TreasureSite[] | nul
   return sites;
 }
 
+/** Unclaimed bounty: two non-negative amounts. Missing means none. */
+function validateBounty(raw: unknown): Bounty | null {
+  if (raw === undefined) return NO_BOUNTY;
+  if (!isObject(raw)) return null;
+  const { pirate, crown } = raw;
+  const ok = (n: unknown): n is number => isFiniteNumber(n) && n >= 0;
+  return ok(pirate) && ok(crown) ? { pirate, crown } : null;
+}
+
+/** Gold claimed per nation: non-negative numbers. Missing means none. */
+function validateClaimed(raw: unknown): Claimed | null {
+  if (raw === undefined) return neutralReputation();
+  if (!isObject(raw)) return null;
+  const claimed = neutralReputation() as Record<NationId, number>;
+  for (const id of Object.keys(NATIONS) as NationId[]) {
+    const value = raw[id];
+    if (!isFiniteNumber(value) || value < 0) return null;
+    claimed[id] = value;
+  }
+  return claimed;
+}
+
 /**
  * Check every field of a migrated save (slice 1 spec §11, slice 2 spec §11); returns the typed
  * save or null. Invalid NPC entries are dropped individually without invalidating the save.
@@ -386,7 +416,9 @@ export function validateSave(raw: Json, ctx: SaveContext): ValidSave | null {
   const cargo = validateCargo(raw.cargo, classId);
   const tradeFlow = validateTradeFlow(raw.tradeFlow, ctx);
   const treasures = validateTreasures(raw.treasures, ctx);
-  if (!cargo || !tradeFlow || !treasures) return null;
+  const bounty = validateBounty(raw.bounty);
+  const claimed = validateClaimed(raw.claimed);
+  if (!cargo || !tradeFlow || !treasures || !bounty || !claimed) return null;
 
   const { world } = ctx;
   if (x < 0 || y < 0 || x >= world.width || y >= world.height) return null;
@@ -420,6 +452,8 @@ export function validateSave(raw: Json, ctx: SaveContext): ValidSave | null {
     cargo,
     tradeFlow,
     treasures,
+    bounty,
+    claimed,
   };
 }
 
@@ -456,5 +490,7 @@ export function parseSave(text: string | null, ctx: SaveContext): Voyage | null 
     cargo: save.cargo,
     tradeFlow: save.tradeFlow,
     treasures: save.treasures,
+    bounty: save.bounty,
+    claimed: save.claimed,
   };
 }
