@@ -20,6 +20,7 @@ import { randRange } from '../random';
 import type { Rng } from '../rng';
 import { departFrom } from '../sailing/start';
 import { fullCondition, type ShipCondition } from '../ships/condition';
+import { emptyCargo, fitCargo } from '../trade/trade';
 import type { StatsNation, Voyage, VoyageStats } from '../voyage';
 import type { Port } from '../world/ports';
 import type { World } from '../world/world';
@@ -161,6 +162,8 @@ export function applyPrize(
       ...next,
       ship: { ...next.ship, classId: npc.classId },
       condition: { ...enemyCondition, crew: Math.min(crew, cls.crewMax) },
+      // A smaller hold means throwing the surplus cargo overboard.
+      cargo: fitCargo(next.cargo, cls.holdCapacity),
     };
   } else if (choice === 'letGo' && npc.nation !== 'pirate' && !hostileToPlayer(npc.nation)) {
     next = {
@@ -245,6 +248,7 @@ export function applyDefeat(
     ship: departFrom(world, port.harbour, 'sloop'),
     condition: fullCondition(sloop, DEFEAT_CREW),
     gold: Math.floor(voyage.gold * DEFEAT_GOLD_KEPT_SHARE),
+    cargo: emptyCargo(),
     elapsedHours: hours,
     lastPortId: port.def.id,
     dockedPortId: null,

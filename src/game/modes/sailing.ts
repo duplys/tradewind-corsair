@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 import { STRINGS } from '../../data/strings';
+import { TREASURE_DIG_HOURS } from '../../data/tavern';
 import { AUTOSAVE_INTERVAL_SEC } from '../../data/voyage';
 import type { Action, HeldActions } from '../../input/actions';
 import type { TouchControls } from '../../input/touch';
@@ -15,12 +16,14 @@ import { windAt, type Wind } from '../../sim/sailing/wind';
 import type { Navigator } from '../../sim/npc/navigator';
 import { stepNpcWorld } from '../../sim/npc/world';
 import { advanceClock } from '../../sim/time';
+import { digTreasure, siteInReach, type TreasureSite } from '../../sim/tavern/treasure';
 import { dockAt } from '../../sim/voyage';
 import { caughtBy, hailableNpc } from '../../sim/npc/encounter';
 import type { NpcShip } from '../../sim/npc/npc';
 import { nearPort, type Port } from '../../sim/world/ports';
 import type { ContextPrompt } from '../../ui/contextPrompt';
 import { theShip } from '../../ui/encounterText';
+import { formatGold } from '../../ui/format';
 import type { Hud } from '../../ui/hud';
 import type { MessageLine } from '../../ui/messageLine';
 import { hintDue } from '../hints';
@@ -49,6 +52,8 @@ export class SailingMode implements Mode {
   private stepParamsFor: ShipCondition | null = null;
   private near: Port | null = null;
   private hail: NpcShip | null = null;
+  /** Buried treasure within reach of the ship (slice 4). */
+  private site: TreasureSite | null = null;
   /** Real seconds spent sailing; drives effects only. */
   private timeSec = 0;
   private wake = new Wake();
@@ -111,6 +116,8 @@ export class SailingMode implements Mode {
       session.voyage = dockAt(session.voyage, this.near);
       this.deps.save();
       this.deps.switchMode('port');
+    } else if (action === 'confirm' && this.site) {
+      this.dig(this.site);
     } else if (action === 'debugDamage' && import.meta.env.DEV) {
       session.voyage = {
         ...session.voyage,
@@ -183,6 +190,7 @@ export class SailingMode implements Mode {
     drawSeaScene(this.deps.scene, voyage.ship, this.timeSec, this.wind.towardRad, this.wake, {
       npcs: voyage.npcs,
       fade: this.fade,
+      treasures: voyage.treasures,
     });
     this.deps.hud.update(this.deps.session.voyage, this.wind, this.timeSec);
     this.deps.messages.update(this.timeSec);
@@ -209,12 +217,24 @@ export class SailingMode implements Mode {
     this.sinceHintSec = 0;
   }
 
+  /** Dig up the hoard: hours pass, and the chest is there, usually (slice 4 spec §3.3). */
+  private dig(site: TreasureSite): void {
+    const { session, messages } = this.deps;
+    const { voyage, found } = digTreasure(session.voyage, site);
+    session.voyage = voyage;
+    const text = found > 0 ? STRINGS.treasure.found(formatGold(found)) : STRINGS.treasure.empty;
+    messages.show(`${STRINGS.treasure.dug(TREASURE_DIG_HOURS)} ${text}`, this.timeSec);
+    this.deps.save();
+    this.updatePrompt();
+  }
+
   /** Closing with a ship takes priority over dropping anchor (slice 2 spec §5.3). */
   private updatePrompt(): void {
     const { voyage } = this.deps.session;
     const { ship } = voyage;
     this.hail = hailableNpc(voyage.npcs, ship);
     this.near = this.hail ? null : nearPort(this.deps.scene.ports, ship.x, ship.y);
+    this.site = this.hail || this.near ? null : siteInReach(voyage);
     if (this.hail) {
       this.deps.prompt.show(`npc:${this.hail.id}`, STRINGS.encounter.prompt(theShip(this.hail)));
     } else if (this.near) {
@@ -222,6 +242,8 @@ export class SailingMode implements Mode {
         `port:${this.near.def.id}`,
         STRINGS.port.dropAnchor(this.near.def.name),
       );
+    } else if (this.site) {
+      this.deps.prompt.show(`treasure:${this.site.x},${this.site.y}`, STRINGS.treasure.prompt);
     } else {
       this.deps.prompt.hide();
     }

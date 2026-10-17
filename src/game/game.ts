@@ -25,6 +25,8 @@ import { Hud } from '../ui/hud';
 import { MessageLine } from '../ui/messageLine';
 import { PortScreen } from '../ui/portScreen';
 import { ShipwrightPanel } from '../ui/shipwrightPanel';
+import { TavernPanel } from '../ui/tavernPanel';
+import { TradePanel } from '../ui/tradePanel';
 import { TitleScreen } from '../ui/titleScreen';
 import { createLoop, type Loop } from './loop';
 import { ModeMachine } from './modeMachine';
@@ -55,6 +57,8 @@ export class Game {
   private readonly pauseOverlay = new PauseOverlay();
   private readonly portScreen = new PortScreen(() => this.input.press('confirm'));
   private readonly shipwright = new ShipwrightPanel();
+  private readonly merchant = new TradePanel();
+  private readonly tavern = new TavernPanel();
   private readonly titleScreen = new TitleScreen();
   private readonly chart: ChartOverlay;
   private readonly store: SaveStore;
@@ -118,6 +122,8 @@ export class Game {
         session,
         portScreen: this.portScreen,
         shipwright: this.shipwright,
+        merchant: this.merchant,
+        tavern: this.tavern,
         switchMode,
         save,
       }),
@@ -153,6 +159,8 @@ export class Game {
     this.touch?.attach(root);
     this.portScreen.attach(root);
     this.shipwright.attach(root);
+    this.merchant.attach(root);
+    this.tavern.attach(root);
     this.chart.attach(root);
     this.encounterDialog.attach(root);
     this.combatHud.attach(root);

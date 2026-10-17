@@ -3,11 +3,15 @@ import { NATIONS, type NationId } from '../data/nations';
 import type { NpcRole } from '../data/npc';
 import type { Allegiance } from '../data/relations';
 import { SAIL_ORDER, type SailSetting } from '../data/sailing';
+import { GOOD_IDS, type GoodId } from '../data/goods';
 import { SHIP_CLASSES, type ShipClassId } from '../data/ships';
 import { DEFAULT_SHIP_NAME, FIRST_NPC_ID } from '../data/voyage';
 import { normaliseAngle } from '../sim/math';
 import type { NpcIntent, NpcShip } from '../sim/npc/npc';
 import { hashString, isRngState } from '../sim/rng';
+import type { FlowEntry, TradeFlow } from '../sim/trade/market';
+import type { TreasureSite } from '../sim/tavern/treasure';
+import { cargoUsed, emptyCargo, type Cargo } from '../sim/trade/trade';
 import type { ShipCondition } from '../sim/ships/condition';
 import {
   emptyStats,
@@ -61,9 +65,23 @@ export interface SaveV2 {
   readonly rngState: number;
   readonly reputation: Readonly<Record<NationId, number>>;
   readonly stats: VoyageStats;
+  /**
+   * Slice 4 fields. Optional in the file, so every older v2 save still loads (it gets an empty
+   * hold, no price pressure and no treasure); always written.
+   */
+  readonly cargo?: Cargo;
+  readonly tradeFlow?: TradeFlow;
+  readonly treasures?: readonly TreasureSite[];
 }
 
-export function toSaveData(voyage: Voyage): SaveV2 {
+/** A save after validation: the slice 4 fields are always present. */
+export type ValidSave = SaveV2 & {
+  readonly cargo: Cargo;
+  readonly tradeFlow: TradeFlow;
+  readonly treasures: readonly TreasureSite[];
+};
+
+export function toSaveData(voyage: Voyage): ValidSave {
   const { x, y, headingRad, speedKn, sail, classId } = voyage.ship;
   return {
     version: 2,
@@ -86,6 +104,9 @@ export function toSaveData(voyage: Voyage): SaveV2 {
     rngState: voyage.rngState,
     reputation: { ...voyage.reputation },
     stats: voyage.stats,
+    cargo: { ...voyage.cargo },
+    tradeFlow: voyage.tradeFlow,
+    treasures: voyage.treasures,
   };
 }
 
@@ -293,11 +314,54 @@ function validateStats(raw: unknown): VoyageStats | null {
   return { captured, sunk, defeats, escapedFrom, byNation };
 }
 
+/** The hold: a count for each good, no more than the ship can carry. Missing means empty. */
+function validateCargo(raw: unknown, classId: ShipClassId): Cargo | null {
+  if (raw === undefined) return emptyCargo();
+  if (!isObject(raw)) return null;
+  const cargo = {} as Record<GoodId, number>;
+  for (const id of GOOD_IDS) {
+    const n = raw[id];
+    if (!isCount(n)) return null;
+    cargo[id] = n;
+  }
+  return cargoUsed(cargo) <= SHIP_CLASSES[classId].holdCapacity ? cargo : null;
+}
+
+/** Price pressure: known goods and ports, finite numbers. Bad entries are dropped. */
+function validateTradeFlow(raw: unknown, ctx: SaveContext): TradeFlow | null {
+  if (raw === undefined) return {};
+  if (!isObject(raw)) return null;
+  const flow: Record<string, FlowEntry> = {};
+  for (const [key, entry] of Object.entries(raw)) {
+    const [portId, good] = key.split('/');
+    if (!portId || !ctx.portIds.has(portId) || !(GOOD_IDS as readonly string[]).includes(good!)) {
+      continue;
+    }
+    if (!isObject(entry) || !isFiniteNumber(entry.net) || !isFiniteNumber(entry.atHours)) continue;
+    flow[key] = { net: entry.net, atHours: entry.atHours };
+  }
+  return flow;
+}
+
+/** Treasure sites on land inside the world. Bad entries are dropped. */
+function validateTreasures(raw: unknown, ctx: SaveContext): TreasureSite[] | null {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) return null;
+  const { world } = ctx;
+  const sites: TreasureSite[] = [];
+  for (const entry of raw) {
+    if (!isPoint(entry)) continue;
+    if (entry.x < 0 || entry.y < 0 || entry.x >= world.width || entry.y >= world.height) continue;
+    sites.push({ x: entry.x, y: entry.y });
+  }
+  return sites;
+}
+
 /**
  * Check every field of a migrated save (slice 1 spec §11, slice 2 spec §11); returns the typed
  * save or null. Invalid NPC entries are dropped individually without invalidating the save.
  */
-export function validateSave(raw: Json, ctx: SaveContext): SaveV2 | null {
+export function validateSave(raw: Json, ctx: SaveContext): ValidSave | null {
   const ship = raw.ship;
   if (!isObject(ship)) return null;
   const { x, y, headingRad, speedKn, sail, classId, name } = ship;
@@ -319,6 +383,10 @@ export function validateSave(raw: Json, ctx: SaveContext): SaveV2 | null {
   const reputation = validateReputation(raw.reputation);
   const stats = validateStats(raw.stats);
   if (!reputation || !stats) return null;
+  const cargo = validateCargo(raw.cargo, classId);
+  const tradeFlow = validateTradeFlow(raw.tradeFlow, ctx);
+  const treasures = validateTreasures(raw.treasures, ctx);
+  if (!cargo || !tradeFlow || !treasures) return null;
 
   const { world } = ctx;
   if (x < 0 || y < 0 || x >= world.width || y >= world.height) return null;
@@ -349,6 +417,9 @@ export function validateSave(raw: Json, ctx: SaveContext): SaveV2 | null {
     rngState,
     reputation,
     stats,
+    cargo,
+    tradeFlow,
+    treasures,
   };
 }
 
@@ -382,5 +453,8 @@ export function parseSave(text: string | null, ctx: SaveContext): Voyage | null 
     stats: save.stats,
     npcs: save.npcs,
     nextNpcId: save.nextNpcId,
+    cargo: save.cargo,
+    tradeFlow: save.tradeFlow,
+    treasures: save.treasures,
   };
 }

@@ -15,7 +15,14 @@ import type { LabelLayer, NpcLabel } from './labels';
 import { drawFlags } from './map/flags';
 import { drawMapSlice } from './map/drawMap';
 import type { ReducedMotion } from './motion';
-import { DEEP_SEA, NPC_SAIL_COLORS, PIRATE_PENNANT, SHIP_COLORS } from './palette';
+import {
+  DEEP_SEA,
+  NPC_SAIL_COLORS,
+  PIRATE_PENNANT,
+  SHIP_COLORS,
+  TREASURE_MARK,
+  TREASURE_MARK_OUTLINE,
+} from './palette';
 import { spriteIndex, type ShipSpriteCache, type ShipSprites } from './sprites/ship';
 import type { View } from './view';
 
@@ -39,6 +46,8 @@ export interface SeaScene {
 export interface SeaTraffic {
   readonly npcs: readonly NpcShip[];
   readonly fade: NpcFade | null;
+  /** Buried treasure to mark with an X (slice 4); none where omitted. */
+  readonly treasures?: readonly { readonly x: number; readonly y: number }[];
 }
 
 function drawSprite(
@@ -54,6 +63,28 @@ function drawSprite(
     Math.round(ship.x) - cam.x - half,
     Math.round(ship.y) - cam.y - half,
   );
+}
+
+/** A 5×5 pixel X with an outline, centred on a world point. */
+function drawTreasureMark(
+  ctx: CanvasRenderingContext2D,
+  cam: CameraOffset,
+  x: number,
+  y: number,
+): void {
+  const cx = Math.round(x) - cam.x;
+  const cy = Math.round(y) - cam.y;
+  if (cx < -4 || cy < -4 || cx > ctx.canvas.width + 4 || cy > ctx.canvas.height + 4) return;
+  ctx.fillStyle = TREASURE_MARK_OUTLINE;
+  for (let d = -2; d <= 2; d++) {
+    ctx.fillRect(cx + d - 1, cy + d, 3, 1);
+    ctx.fillRect(cx - d - 1, cy + d, 3, 1);
+  }
+  ctx.fillStyle = TREASURE_MARK;
+  for (let d = -2; d <= 2; d++) {
+    ctx.fillRect(cx + d, cy + d, 1, 1);
+    ctx.fillRect(cx - d, cy + d, 1, 1);
+  }
 }
 
 function npcPennant(npc: NpcShip): readonly [string, string] {
@@ -98,6 +129,7 @@ export function drawSeaScene(
   if (!reduced) drawSparkles(ctx, cam, world, timeSec, windTowardRad);
   wake?.draw(ctx, cam, timeSec);
   drawFlags(ctx, cam, scene.ports, decorTimeSec);
+  for (const site of traffic?.treasures ?? []) drawTreasureMark(ctx, cam, site.x, site.y);
 
   const labels = scene.npcLabels;
   labels.length = 0;
