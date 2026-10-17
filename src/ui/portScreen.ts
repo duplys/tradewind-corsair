@@ -6,8 +6,15 @@ import { el } from './dom';
 
 /**
  * The port screen (slice 1 spec §4.2): a parchment card with the port's name, nation and flag,
- * blurb and date, four buttons for later slices, and Set sail.
+ * blurb and date, a button for each building (the Governor is still to come), and Set sail.
  */
+/** What the port's buildings do. `shipwright` is null where it will not serve the player. */
+export interface PortHandlers {
+  readonly onTavern: () => void;
+  readonly onMerchant: () => void;
+  readonly onShipwright: (() => void) | null;
+}
+
 export class PortScreen {
   private readonly root = el('div', 'port-screen');
   private readonly name = el('h1', 'port-name');
@@ -17,9 +24,12 @@ export class PortScreen {
   private readonly date = el('p', 'port-date');
   private readonly card = el('div', 'parchment-card');
   private readonly setSail = el('button', 'parchment-button set-sail', STRINGS.port.setSail);
+  private readonly governor = el('button', 'parchment-button', STRINGS.port.governor);
+  private readonly tavern = el('button', 'parchment-button', STRINGS.port.tavern);
+  private readonly merchant = el('button', 'parchment-button', STRINGS.port.merchant);
   private readonly shipwright = el('button', 'parchment-button', STRINGS.port.shipwright);
   private readonly shipwrightCaption = el('small', 'caption');
-  private onShipwright: (() => void) | null = null;
+  private handlers: PortHandlers | null = null;
 
   constructor(onSetSail: () => void) {
     this.root.hidden = true;
@@ -38,18 +48,20 @@ export class PortScreen {
     nationLine.append(this.flag, this.nation);
 
     const actions = el('div', 'port-actions');
-    const future = [STRINGS.port.governor, STRINGS.port.tavern, STRINGS.port.merchant];
-    for (const label of future) {
-      const button = el('button', 'parchment-button', label);
-      button.type = 'button';
-      button.disabled = true;
-      button.append(el('small', 'caption', STRINGS.port.comingSoon));
-      actions.append(button);
+    this.governor.type = 'button';
+    this.governor.disabled = true;
+    this.governor.append(el('small', 'caption', STRINGS.port.comingSoon));
+    for (const [node, open] of [
+      [this.tavern, () => this.handlers?.onTavern()],
+      [this.merchant, () => this.handlers?.onMerchant()],
+    ] as const) {
+      node.type = 'button';
+      node.addEventListener('click', open);
     }
     this.shipwright.type = 'button';
     this.shipwright.append(this.shipwrightCaption);
-    this.shipwright.addEventListener('click', () => this.onShipwright?.());
-    actions.append(this.shipwright);
+    this.shipwright.addEventListener('click', () => this.handlers?.onShipwright?.());
+    actions.append(this.governor, this.tavern, this.merchant, this.shipwright);
     this.setSail.type = 'button';
     this.setSail.addEventListener('click', onSetSail);
 
@@ -62,14 +74,15 @@ export class PortScreen {
   }
 
   /**
-   * Show a port. \`onShipwright\` is null where the shipwright will not serve the player (a
-   * port hostile to England, slice 2 spec §3.4).
+   * Show a port. The shipwright handler is null where the shipwright will not serve the player
+   * (a port hostile to England, slice 2 spec §3.4).
    */
-  show(port: Port, dateText: string, onShipwright: (() => void) | null): void {
-    this.onShipwright = onShipwright;
-    this.shipwright.disabled = onShipwright === null;
-    this.shipwrightCaption.textContent = onShipwright ? '' : STRINGS.port.closedToUs;
-    this.shipwrightCaption.hidden = onShipwright !== null;
+  show(port: Port, dateText: string, handlers: PortHandlers): void {
+    this.handlers = handlers;
+    const shipwrightOpen = handlers.onShipwright !== null;
+    this.shipwright.disabled = !shipwrightOpen;
+    this.shipwrightCaption.textContent = shipwrightOpen ? '' : STRINGS.port.closedToUs;
+    this.shipwrightCaption.hidden = shipwrightOpen;
     const nation = NATIONS[port.def.nation];
     this.name.textContent = port.def.name;
     this.nation.textContent = nation.name;
@@ -95,6 +108,6 @@ export class PortScreen {
 
   hide(): void {
     this.root.hidden = true;
-    this.onShipwright = null;
+    this.handlers = null;
   }
 }

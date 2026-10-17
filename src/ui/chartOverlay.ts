@@ -38,6 +38,7 @@ export class ChartOverlay {
   private ship: PlayerShip | null = null;
   private wind: Wind | null = null;
   private npcDots: readonly ChartDot[] = [];
+  private treasures: readonly { readonly x: number; readonly y: number }[] = [];
 
   constructor(
     private readonly world: World,
@@ -71,8 +72,15 @@ export class ChartOverlay {
     parent.append(this.root);
   }
 
-  show(ship: PlayerShip, wind: Wind, dateText: string, npcs: readonly NpcShip[]): void {
+  show(
+    ship: PlayerShip,
+    wind: Wind,
+    dateText: string,
+    npcs: readonly NpcShip[],
+    treasures: readonly { readonly x: number; readonly y: number }[] = [],
+  ): void {
     this.ship = ship;
+    this.treasures = treasures;
     this.wind = wind;
     this.npcDots = npcs
       .filter((n) => Math.hypot(n.ship.x - ship.x, n.ship.y - ship.y) <= NPC_CHART_RANGE_PX)
@@ -116,6 +124,7 @@ export class ChartOverlay {
       ports: this.ports,
       wind: this.wind,
       npcDots: this.npcDots,
+      treasures: this.treasures,
     });
   }
 

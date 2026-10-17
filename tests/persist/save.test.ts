@@ -11,6 +11,7 @@ import {
 } from '../../src/persist/save';
 import { SaveStore, type SaveStorage } from '../../src/persist/saveStore';
 import { createRng, restoreRng } from '../../src/sim/rng';
+import { emptyCargo } from '../../src/sim/trade/trade';
 import { dockAt, emptyStats, newVoyage, type Voyage } from '../../src/sim/voyage';
 import { derivePorts, findPort, type Port } from '../../src/sim/world/ports';
 import { lonLatToWorld } from '../../src/sim/world/projection';
@@ -89,6 +90,57 @@ class FakeStorage implements SaveStorage {
   }
 }
 
+describe('save v2, slice 4 fields', () => {
+  const trading = () => ({
+    ...voyage,
+    cargo: { ...emptyCargo(), sugar: 12, spices: 3 },
+    tradeFlow: { 'port-royal/sugar': { net: 12, atHours: 1200 } },
+    treasures: [{ x: 100.5, y: 200.5 }],
+  });
+
+  it('round-trips cargo, price pressure and treasure sites', () => {
+    const ok = parseSave(JSON.stringify(toSaveData(trading())), ctx)!;
+    expect(ok.cargo).toEqual(trading().cargo);
+    expect(ok.tradeFlow).toEqual(trading().tradeFlow);
+    expect(ok.treasures).toEqual(trading().treasures);
+  });
+
+  it('loads an older v2 save without them as an empty hold, no pressure and no treasure', () => {
+    const data = JSON.parse(JSON.stringify(toSaveData(voyage))) as Record<string, unknown>;
+    delete data.cargo;
+    delete data.tradeFlow;
+    delete data.treasures;
+    const loaded = parseSave(JSON.stringify(data), ctx)!;
+    expect(loaded.cargo).toEqual(emptyCargo());
+    expect(loaded.tradeFlow).toEqual({});
+    expect(loaded.treasures).toEqual([]);
+  });
+
+  it('rejects a hold fuller than the ship or with a bad count', () => {
+    expect(parseSave(v2With({ cargo: { ...emptyCargo(), rum: 31 } }), ctx)).toBeNull();
+    expect(parseSave(v2With({ cargo: { ...emptyCargo(), rum: -1 } }), ctx)).toBeNull();
+    expect(parseSave(v2With({ cargo: { ...emptyCargo(), rum: 1.5 } }), ctx)).toBeNull();
+    expect(parseSave(v2With({ cargo: { sugar: 1 } }), ctx)).toBeNull();
+  });
+
+  it('drops pressure and treasure entries that make no sense, keeping the rest', () => {
+    const loaded = parseSave(
+      v2With({
+        tradeFlow: {
+          'port-royal/rum': { net: 5, atHours: 10 },
+          'nowhere/rum': { net: 5, atHours: 10 },
+          'port-royal/gold': { net: 5, atHours: 10 },
+          'havana/sugar': { net: 'lots', atHours: 10 },
+        },
+        treasures: [{ x: 5, y: 5 }, { x: -3, y: 5 }, 'x', { x: 1e9, y: 1 }],
+      }),
+      ctx,
+    )!;
+    expect(loaded.tradeFlow).toEqual({ 'port-royal/rum': { net: 5, atHours: 10 } });
+    expect(loaded.treasures).toEqual([{ x: 5, y: 5 }]);
+  });
+});
+
 describe('save v2', () => {
   it('round-trips a voyage, including condition, RNG, reputation and stats', () => {
     const loaded = parseSave(JSON.stringify(toSaveData(voyage)), ctx);
@@ -99,6 +151,7 @@ describe('save v2', () => {
     const data = toSaveData(voyage);
     expect(Object.keys(data).sort()).toEqual(
       [
+        'cargo',
         'elapsedHours',
         'gold',
         'hintsShown',
@@ -109,6 +162,8 @@ describe('save v2', () => {
         'rngState',
         'ship',
         'stats',
+        'tradeFlow',
+        'treasures',
         'version',
       ].sort(),
     );

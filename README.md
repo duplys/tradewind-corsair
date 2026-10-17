@@ -19,6 +19,13 @@ The project is in early development. Work proceeds in slices; see `docs/specs/`.
   Ships sink, strike their colours, board each other or escape over the horizon.
 - **Take prizes:** plunder and recruits, and you can take a captured ship as your own.
   Defeat puts you ashore in a small sloop. Repair at any friendly shipwright.
+- **Trade** (slice 4): every port has a Merchant. Six goods (sugar, tobacco, rum, cloth,
+  timber, spices) sell cheap where they are made and dear where they are wanted; prices drift
+  month by month and move with your own buying and selling. Your hold is limited by your
+  ship; ports at war with England charge more and pay less.
+- **Drink and listen** (slice 4): the Tavern signs on crew, sells rumours (prices, wars,
+  pirate sightings) and sells treasure tips. A tip marks a red X on the chart: sail there,
+  and dig.
 
 ## Requirements
 

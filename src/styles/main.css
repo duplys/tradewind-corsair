@@ -921,6 +921,80 @@ canvas.labels {
   width: 100%;
 }
 
+/* ---- Merchant and tavern ------------------------------------------------ */
+
+.trade-card {
+  width: min(32rem, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.trade-list {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.trade-row {
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(43, 26, 14, 0.25);
+}
+
+.trade-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.trade-name {
+  font-family: var(--font-period-sc);
+  font-size: 1.3rem;
+}
+
+.trade-tag {
+  font-family: var(--font-period);
+  font-style: italic;
+  font-size: 0.95rem;
+}
+
+.trade-tag[data-tag='cheap'] {
+  color: #1f5c2e;
+}
+
+.trade-tag[data-tag='dear'] {
+  color: #8c1d18;
+}
+
+.trade-held {
+  margin-left: auto;
+  font-family: var(--font-numerals);
+  font-size: 1.15rem;
+}
+
+.trade-prices {
+  margin: 2px 0 6px;
+  font-family: var(--font-numerals);
+  font-size: 1.2rem;
+}
+
+.trade-buttons {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+.trade-button {
+  min-width: 0;
+  padding: 4px 2px;
+  font-size: 0.95rem;
+}
+
+.trade-screen button:focus-visible,
+.tavern-screen button:focus-visible {
+  outline-color: var(--ink);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .message-line {
     transition: none;

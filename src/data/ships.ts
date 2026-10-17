@@ -26,6 +26,8 @@ export interface ShipClass {
   readonly crewTypical: number;
   /** Base plunder in gold. */
   readonly cargoValue: number;
+  /** Cargo the hold takes, in units of trade goods (slice 4). */
+  readonly holdCapacity: number;
   /** [relDeg, factor]: relDeg is the angle between heading and the wind's toward direction. */
   readonly polar: readonly (readonly [relDeg: number, factor: number])[];
 }
@@ -53,6 +55,7 @@ export const SHIP_CLASSES: Readonly<Record<ShipClassId, ShipClass>> = {
     crewMax: 60,
     crewTypical: 40,
     cargoValue: 300,
+    holdCapacity: 30,
     polar: polar(0.72, 0.78, 0.9, 1.0, 0.86, 0.6, 0.18, 0.05),
   },
   brigantine: {
@@ -70,6 +73,7 @@ export const SHIP_CLASSES: Readonly<Record<ShipClassId, ShipClass>> = {
     crewMax: 100,
     crewTypical: 60,
     cargoValue: 800,
+    holdCapacity: 60,
     polar: polar(0.8, 0.84, 0.92, 1.0, 0.78, 0.45, 0.12, 0.05),
   },
   fluyt: {
@@ -87,6 +91,7 @@ export const SHIP_CLASSES: Readonly<Record<ShipClassId, ShipClass>> = {
     crewMax: 60,
     crewTypical: 30,
     cargoValue: 2500,
+    holdCapacity: 150,
     polar: polar(0.9, 0.92, 0.95, 0.9, 0.6, 0.3, 0.08, 0.04),
   },
   frigate: {
@@ -104,6 +109,7 @@ export const SHIP_CLASSES: Readonly<Record<ShipClassId, ShipClass>> = {
     crewMax: 220,
     crewTypical: 150,
     cargoValue: 1200,
+    holdCapacity: 50,
     polar: polar(0.9, 0.95, 1.0, 0.95, 0.65, 0.35, 0.1, 0.04),
   },
   galleon: {
@@ -121,6 +127,7 @@ export const SHIP_CLASSES: Readonly<Record<ShipClassId, ShipClass>> = {
     crewMax: 300,
     crewTypical: 200,
     cargoValue: 6000,
+    holdCapacity: 180,
     polar: polar(1.0, 0.98, 0.9, 0.8, 0.5, 0.25, 0.07, 0.03),
   },
 };

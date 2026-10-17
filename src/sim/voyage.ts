@@ -11,6 +11,9 @@ import {
 } from '../data/voyage';
 import type { NpcShip } from './npc/npc';
 import { createRng, type RngState } from './rng';
+import type { TreasureSite } from './tavern/treasure';
+import { emptyCargo, type Cargo } from './trade/trade';
+import type { TradeFlow } from './trade/market';
 import { departFrom } from './sailing/start';
 import type { PlayerShip } from './sailing/ship';
 import { fullCondition, type ShipCondition } from './ships/condition';
@@ -65,6 +68,12 @@ export interface Voyage {
   /** Other ships at sea around the player (slice 2 spec §4). */
   readonly npcs: readonly NpcShip[];
   readonly nextNpcId: number;
+  /** Goods in the hold (slice 4). */
+  readonly cargo: Cargo;
+  /** The player's lingering pressure on each port's prices (slice 4). */
+  readonly tradeFlow: TradeFlow;
+  /** Buried treasure the tavern has told the player about (slice 4). */
+  readonly treasures: readonly TreasureSite[];
 }
 
 export function neutralReputation(): Reputation {
@@ -107,6 +116,9 @@ export function newVoyage(
     stats: emptyStats(),
     npcs: [],
     nextNpcId: FIRST_NPC_ID,
+    cargo: emptyCargo(),
+    tradeFlow: {},
+    treasures: [],
   };
 }
 

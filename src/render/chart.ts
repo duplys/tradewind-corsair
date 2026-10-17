@@ -6,7 +6,7 @@ import { bearingToCompass16 } from '../sim/math';
 import type { PlayerShip } from '../sim/sailing/ship';
 import { fromBearingDeg, type Wind } from '../sim/sailing/wind';
 import type { Port } from '../sim/world/ports';
-import { CHART_COLORS } from './palette';
+import { CHART_COLORS, TREASURE_MARK } from './palette';
 
 const GRATICULE_STEP_DEG = 5;
 const BLINK_PER_SEC = 2;
@@ -50,6 +50,8 @@ export interface ChartStatic {
   readonly ports: readonly Port[];
   readonly wind: Wind;
   readonly npcDots: readonly ChartDot[];
+  /** Buried treasure, drawn as a red X. */
+  readonly treasures: readonly { readonly x: number; readonly y: number }[];
 }
 
 function periodFont(sizePx: number, smallCaps = false): string {
@@ -142,6 +144,23 @@ export function drawChartStatic(
     ctx.fill();
     ctx.stroke();
   }
+
+  // Buried treasure the tavern told of: a red X.
+  ctx.strokeStyle = TREASURE_MARK;
+  ctx.lineWidth = 2.5 * dpr;
+  ctx.lineCap = 'round';
+  for (const site of data.treasures) {
+    const x = ox + site.x * scale;
+    const y = oy + site.y * scale;
+    const r = 4.5 * dpr;
+    ctx.beginPath();
+    ctx.moveTo(x - r, y - r);
+    ctx.lineTo(x + r, y + r);
+    ctx.moveTo(x + r, y - r);
+    ctx.lineTo(x - r, y + r);
+    ctx.stroke();
+  }
+  ctx.lineCap = 'butt';
 
   drawWindRose(ctx, ox + mapW - 34 * dpr, oy + 34 * dpr, 24 * dpr, dpr, data.wind);
 }

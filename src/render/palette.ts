@@ -169,3 +169,7 @@ export const EFFECT_COLORS = {
   pointer: '#e9d9a6',
   sinkingWater: '#173f69',
 } as const;
+
+/** The X that marks buried treasure, on the sea view and on the chart. */
+export const TREASURE_MARK = '#c8102e';
+export const TREASURE_MARK_OUTLINE = '#10213a';

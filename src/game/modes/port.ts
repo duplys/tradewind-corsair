@@ -1,9 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-only
+import { GOOD_IDS, GOODS, type GoodId } from '../../data/goods';
 import { hostileToPlayer } from '../../data/relations';
 import { SHIP_CLASSES } from '../../data/ships';
 import { STRINGS } from '../../data/strings';
+import {
+  HIRE_GOLD_PER_HAND,
+  HIRE_STEPS,
+  RUMOUR_GOLD,
+  TIP_GOLD,
+  TREASURE_MAX_ACTIVE,
+} from '../../data/tavern';
 import type { Action } from '../../input/actions';
 import { drawSeaScene, type SeaScene } from '../../render/scene';
+import { restoreRng } from '../../sim/rng';
 import { windAt } from '../../sim/sailing/wind';
 import {
   affordableRepair,
@@ -12,11 +21,20 @@ import {
   isEmptyRepair,
   type RepairPlan,
 } from '../../sim/ships/repair';
+import { freeBerths, hireCrew, maxHires } from '../../sim/tavern/crew';
+import { overhearRumour } from '../../sim/tavern/rumours';
+import { buyTreasureTip } from '../../sim/tavern/treasure';
 import { formatDate } from '../../sim/time';
+import { basePriceAt, midPrice, effectiveNet, quoteAt } from '../../sim/trade/market';
+import { buyGoods, cargoUsed, holdCapacityOf, maxBuyable, sellGoods } from '../../sim/trade/trade';
 import { repairShip, setSailFrom } from '../../sim/voyage';
 import { findPort, type Port } from '../../sim/world/ports';
+import { formatGold } from '../../ui/format';
 import type { PortScreen } from '../../ui/portScreen';
 import type { ShipwrightPanel, ShipwrightView } from '../../ui/shipwrightPanel';
+import { rumourText } from '../../ui/tavernText';
+import type { TavernPanel, TavernView } from '../../ui/tavernPanel';
+import type { TradePanel, TradeView } from '../../ui/tradePanel';
 import type { Session } from '../session';
 import type { Mode, SwitchMode } from './mode';
 
@@ -25,22 +43,31 @@ export interface PortDeps {
   readonly session: Session;
   readonly portScreen: PortScreen;
   readonly shipwright: ShipwrightPanel;
+  readonly merchant: TradePanel;
+  readonly tavern: TavernPanel;
   readonly switchMode: SwitchMode;
   /** Write the current voyage to the save slot. */
   readonly save: () => void;
 }
 
 type RepairKind = 'all' | 'affordable' | 'guns';
+type PortPanel = 'shipwright' | 'merchant' | 'tavern';
+
+/** A price this far below (above) the good's usual price is called cheap (dear). */
+const TAG_BAND = 0.12;
 
 /**
  * At anchor (slice 1 spec §4.2). Game time is paused, except for the days a repair takes; the
- * port screen covers the map. Friendly ports offer the Shipwright (slice 2 spec §3.4).
+ * port screen covers the map. Friendly ports offer the Shipwright (slice 2 spec §3.4); every
+ * port has a Merchant and a Tavern (slice 4).
  */
 export class PortMode implements Mode {
   readonly id = 'port';
   private port: Port | null = null;
   /** Decorative time only (waving flags); the game clock does not advance in port. */
   private timeSec = 0;
+  /** What the last merchant or tavern action did, shown in the panel. */
+  private panelNote = '';
 
   constructor(private readonly deps: PortDeps) {}
 
@@ -51,18 +78,25 @@ export class PortMode implements Mode {
     const port = findPort(scene.ports, id);
     this.port = port;
     const shipwrightOpen = !hostileToPlayer(port.def.nation);
-    portScreen.show(port, this.dateText(), shipwrightOpen ? () => this.openShipwright() : null);
+    this.panelNote = '';
+    portScreen.show(port, this.dateText(), {
+      onTavern: () => this.openTavern(),
+      onMerchant: () => this.openMerchant(),
+      onShipwright: shipwrightOpen ? () => this.openShipwright() : null,
+    });
   }
 
   exit(): void {
+    this.closePanels();
     this.deps.shipwright.hide();
     this.deps.portScreen.hide();
     this.port = null;
   }
 
   handleAction(action: Action): void {
-    if (this.deps.shipwright.isOpen) {
-      if (action === 'close') this.closeShipwright();
+    const open = this.openPanel();
+    if (open) {
+      if (action === 'close') this.closePanel();
       return;
     }
     if (action === 'confirm') this.setSail();
@@ -122,13 +156,156 @@ export class PortMode implements Mode {
       onRepairAll: () => this.repair('all'),
       onRepairAffordable: () => this.repair('affordable'),
       onReplaceGuns: () => this.repair('guns'),
-      onBack: () => this.closeShipwright(),
+      onBack: () => this.closePanel(),
     });
   }
 
-  private closeShipwright(): void {
+  private openPanel(): PortPanel | null {
+    const { shipwright, merchant, tavern } = this.deps;
+    if (shipwright.isOpen) return 'shipwright';
+    if (merchant.isOpen) return 'merchant';
+    if (tavern.isOpen) return 'tavern';
+    return null;
+  }
+
+  private closePanels(): void {
     this.deps.shipwright.hide();
+    this.deps.merchant.hide();
+    this.deps.tavern.hide();
+  }
+
+  private closePanel(): void {
+    this.closePanels();
     this.deps.portScreen.focus();
+  }
+
+  // ---- Merchant (slice 4 spec §2) ----
+
+  private merchantView(): TradeView {
+    const { voyage } = this.deps.session;
+    const def = this.port!.def;
+    const rows = GOOD_IDS.map((good) => {
+      const quote = quoteAt(def, good, voyage.tradeFlow, voyage.elapsedHours);
+      const mid = midPrice(
+        basePriceAt(def, good, voyage.elapsedHours),
+        effectiveNet(voyage.tradeFlow, def.id, good, voyage.elapsedHours),
+      );
+      const usual = GOODS[good].basePrice;
+      return {
+        good,
+        held: voyage.cargo[good],
+        buy: quote.buy,
+        sell: quote.sell,
+        tag:
+          mid <= usual * (1 - TAG_BAND)
+            ? ('cheap' as const)
+            : mid >= usual * (1 + TAG_BAND)
+              ? ('dear' as const)
+              : null,
+        canBuy: maxBuyable(voyage, def, good, 1),
+      };
+    });
+    return {
+      gold: voyage.gold,
+      used: cargoUsed(voyage.cargo),
+      capacity: holdCapacityOf(voyage),
+      hostile: hostileToPlayer(def.nation),
+      rows,
+      note: this.panelNote,
+    };
+  }
+
+  private openMerchant(): void {
+    this.panelNote = '';
+    this.deps.merchant.show(this.merchantView(), {
+      onBuy: (good, count) => this.trade('buy', good, count),
+      onSell: (good, count) => this.trade('sell', good, count),
+      onBack: () => this.closePanel(),
+    });
+  }
+
+  private trade(side: 'buy' | 'sell', good: GoodId, count: number): void {
+    const { session } = this.deps;
+    const def = this.port!.def;
+    const before = session.voyage;
+    const after =
+      side === 'buy' ? buyGoods(before, def, good, count) : sellGoods(before, def, good, count);
+    if (after === before) return;
+    const moved = Math.abs(after.cargo[good] - before.cargo[good]);
+    const gold = formatGold(Math.abs(after.gold - before.gold));
+    const say = side === 'buy' ? STRINGS.merchant.bought : STRINGS.merchant.sold;
+    this.panelNote = say(moved, GOODS[good].name.toLowerCase(), gold);
+    session.voyage = after;
+    this.deps.save();
+    this.deps.merchant.update(this.merchantView());
+  }
+
+  // ---- Tavern (slice 4 spec §3) ----
+
+  private tavernView(): TavernView {
+    const { voyage } = this.deps.session;
+    const { crewMax } = SHIP_CLASSES[voyage.ship.classId];
+    const active = voyage.treasures.length;
+    return {
+      gold: voyage.gold,
+      crew: voyage.condition.crew,
+      crewMax,
+      maxHires: maxHires(voyage),
+      berths: freeBerths(voyage),
+      hireSteps: HIRE_STEPS,
+      hireCostPerHand: HIRE_GOLD_PER_HAND,
+      rumourCost: RUMOUR_GOLD,
+      tipCost: TIP_GOLD,
+      canRumour: voyage.gold >= RUMOUR_GOLD,
+      tipBlock: active >= TREASURE_MAX_ACTIVE ? 'full' : voyage.gold < TIP_GOLD ? 'gold' : null,
+      note: this.panelNote,
+    };
+  }
+
+  private openTavern(): void {
+    this.panelNote = '';
+    this.deps.tavern.show(this.tavernView(), {
+      onHire: (count) => this.hire(count),
+      onRumour: () => this.listen(),
+      onTip: () => this.buyTip(),
+      onBack: () => this.closePanel(),
+    });
+  }
+
+  private tavernDone(note: string): void {
+    this.panelNote = note;
+    this.deps.save();
+    this.deps.tavern.update(this.tavernView());
+  }
+
+  private hire(count: number): void {
+    const { session } = this.deps;
+    const after = hireCrew(session.voyage, count);
+    const hired = after.condition.crew - session.voyage.condition.crew;
+    if (hired <= 0) return;
+    session.voyage = after;
+    this.tavernDone(STRINGS.tavern.hired(hired));
+  }
+
+  private listen(): void {
+    const { session, scene } = this.deps;
+    const voyage = session.voyage;
+    if (voyage.gold < RUMOUR_GOLD) return;
+    const rng = restoreRng(voyage.rngState);
+    const rumour = overhearRumour(voyage, scene.ports, this.port!, rng);
+    session.voyage = { ...voyage, gold: voyage.gold - RUMOUR_GOLD, rngState: rng.state() };
+    this.tavernDone(rumourText(rumour));
+  }
+
+  private buyTip(): void {
+    const { session, scene } = this.deps;
+    const result = buyTreasureTip(session.voyage, scene.world, scene.ports, this.port!);
+    if (!result.ok) {
+      if (result.reason === 'nothing') this.tavernDone(STRINGS.tavern.tipNothing);
+      return;
+    }
+    session.voyage = result.voyage;
+    this.tavernDone(STRINGS.tavern.tipBought);
   }
 
   private repair(kind: RepairKind): void {
