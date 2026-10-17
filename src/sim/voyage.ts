@@ -11,6 +11,7 @@ import {
 } from '../data/voyage';
 import type { NpcShip } from './npc/npc';
 import { createRng, type RngState } from './rng';
+import { NO_BOUNTY, type Bounty, type Claimed } from './governor/governor';
 import type { TreasureSite } from './tavern/treasure';
 import { emptyCargo, type Cargo } from './trade/trade';
 import type { TradeFlow } from './trade/market';
@@ -74,6 +75,10 @@ export interface Voyage {
   readonly tradeFlow: TradeFlow;
   /** Buried treasure the tavern has told the player about (slice 4). */
   readonly treasures: readonly TreasureSite[];
+  /** Bounty for enemy ships, waiting to be claimed from a governor (slice 4). */
+  readonly bounty: Bounty;
+  /** Gold claimed from each nation's governors; drives rank (slice 4). */
+  readonly claimed: Claimed;
 }
 
 export function neutralReputation(): Reputation {
@@ -119,6 +124,8 @@ export function newVoyage(
     cargo: emptyCargo(),
     tradeFlow: {},
     treasures: [],
+    bounty: NO_BOUNTY,
+    claimed: neutralReputation(),
   };
 }
 

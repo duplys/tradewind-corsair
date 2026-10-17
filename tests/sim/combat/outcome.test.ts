@@ -179,6 +179,35 @@ describe('prize', () => {
   });
 });
 
+describe('bounty from fights', () => {
+  it('is earned by sinking or taking an enemy ship, but not by letting her go', () => {
+    const fluyt = spanishFluyt();
+    const s = fight({ type: 'captured' });
+    const prize = { plunder: 0, recruits: 0 };
+    const taken = (choice: 'take' | 'sink' | 'letGo') =>
+      applyPrize({ ...voyage, npcs: [fluyt] }, s, fluyt, prize, 35, s.ships[1].condition, choice);
+    expect(taken('sink').bounty.crown).toBeGreaterThan(0);
+    expect(taken('take').bounty.crown).toBeGreaterThan(0);
+    expect(taken('letGo').bounty).toEqual({ pirate: 0, crown: 0 });
+    const sunk = applyEnemySunk(
+      { ...voyage, npcs: [fluyt] },
+      fight({ type: 'sunk', shipIndex: 1 }),
+      fluyt,
+    );
+    expect(sunk.bounty.crown).toBe(taken('sink').bounty.crown);
+  });
+
+  it('is not earned from a friendly ship', () => {
+    const dutch = makeNpc({ id: 9, classId: 'fluyt', nation: 'nl', role: 'trader' });
+    const v = applyEnemySunk(
+      { ...voyage, npcs: [dutch] },
+      fight({ type: 'sunk', shipIndex: 1 }),
+      dutch,
+    );
+    expect(v.bounty).toEqual({ pirate: 0, crown: 0 });
+  });
+});
+
 describe('other endings', () => {
   it('records a sinking, with no plunder', () => {
     const fluyt = spanishFluyt();

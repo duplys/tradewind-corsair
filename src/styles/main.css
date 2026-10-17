@@ -991,6 +991,7 @@ canvas.labels {
 }
 
 .trade-screen button:focus-visible,
+.governor-screen button:focus-visible,
 .tavern-screen button:focus-visible {
   outline-color: var(--ink);
 }
@@ -999,4 +1000,19 @@ canvas.labels {
   .message-line {
     transition: none;
   }
+}
+
+.governor-subheading {
+  margin: 8px 0 2px;
+  font-family: var(--font-period-sc);
+  font-weight: normal;
+  font-size: 1.2rem;
+}
+
+.governor-standing {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-period);
+  font-size: 1.05rem;
 }

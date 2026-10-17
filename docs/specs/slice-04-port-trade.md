@@ -22,3 +22,18 @@ disabled; the tavern brawl is deferred until the sword duel (slice 3) exists.
 - [ ] Cargo, price pressure and treasure sites survive Continue; an older save loads with an
       empty hold. Taking a smaller prize ship drops surplus cargo; defeat clears it.
 - [ ] No console errors or warnings; usable on a phone (the merchant list scrolls).
+
+## Governor (second part)
+
+Decisions and numbers: `docs/decisions/018-governor.md`.
+
+- [ ] The Governor button is enabled in friendly ports and reads "Closed to English ships"
+      in ports hostile to England.
+- [ ] The panel shows the commission line, the rank for this nation and the next promotion,
+      the standing with all four nations, and the bounty this governor would pay.
+- [ ] Sinking or taking a pirate or Spanish ship adds bounty; letting her go or sinking a
+      friendly ship does not.
+- [ ] An English governor pays pirate and Spanish bounty; a French or Dutch one pays only
+      pirate bounty and leaves the rest waiting.
+- [ ] Claiming adds the gold, raises standing, and promotes (with a reward) at the thresholds.
+- [ ] Bounty and claimed gold survive Continue; an older save loads with none.

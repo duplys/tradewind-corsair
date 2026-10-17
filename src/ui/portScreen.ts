@@ -6,10 +6,12 @@ import { el } from './dom';
 
 /**
  * The port screen (slice 1 spec §4.2): a parchment card with the port's name, nation and flag,
- * blurb and date, a button for each building (the Governor is still to come), and Set sail.
+ * blurb and date, a button for each building, and Set sail.
  */
 /** What the port's buildings do. `shipwright` is null where it will not serve the player. */
 export interface PortHandlers {
+  /** Null where the governor will not see the player (a port hostile to England). */
+  readonly onGovernor: (() => void) | null;
   readonly onTavern: () => void;
   readonly onMerchant: () => void;
   readonly onShipwright: (() => void) | null;
@@ -25,6 +27,7 @@ export class PortScreen {
   private readonly card = el('div', 'parchment-card');
   private readonly setSail = el('button', 'parchment-button set-sail', STRINGS.port.setSail);
   private readonly governor = el('button', 'parchment-button', STRINGS.port.governor);
+  private readonly governorCaption = el('small', 'caption');
   private readonly tavern = el('button', 'parchment-button', STRINGS.port.tavern);
   private readonly merchant = el('button', 'parchment-button', STRINGS.port.merchant);
   private readonly shipwright = el('button', 'parchment-button', STRINGS.port.shipwright);
@@ -49,8 +52,8 @@ export class PortScreen {
 
     const actions = el('div', 'port-actions');
     this.governor.type = 'button';
-    this.governor.disabled = true;
-    this.governor.append(el('small', 'caption', STRINGS.port.comingSoon));
+    this.governor.append(this.governorCaption);
+    this.governor.addEventListener('click', () => this.handlers?.onGovernor?.());
     for (const [node, open] of [
       [this.tavern, () => this.handlers?.onTavern()],
       [this.merchant, () => this.handlers?.onMerchant()],
@@ -79,6 +82,10 @@ export class PortScreen {
    */
   show(port: Port, dateText: string, handlers: PortHandlers): void {
     this.handlers = handlers;
+    const governorOpen = handlers.onGovernor !== null;
+    this.governor.disabled = !governorOpen;
+    this.governorCaption.textContent = governorOpen ? '' : STRINGS.port.closedToUs;
+    this.governorCaption.hidden = governorOpen;
     const shipwrightOpen = handlers.onShipwright !== null;
     this.shipwright.disabled = !shipwrightOpen;
     this.shipwrightCaption.textContent = shipwrightOpen ? '' : STRINGS.port.closedToUs;

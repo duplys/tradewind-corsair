@@ -14,6 +14,7 @@ import {
 } from '../../data/combat';
 import { hostileToPlayer } from '../../data/relations';
 import { SHIP_CLASSES } from '../../data/ships';
+import { addBounty } from '../governor/governor';
 import { breakContact, moveAlongHeading, updateNpc } from '../npc/encounter';
 import type { NpcShip } from '../npc/npc';
 import { randRange } from '../random';
@@ -156,6 +157,8 @@ export function applyPrize(
     gold: next.gold + prize.plunder,
     stats: record(next.stats, npc.nation, 'captured'),
   };
+  // Let go means no bounty: the governor wants proof of a ship taken or sunk.
+  if (choice !== 'letGo') next = addBounty(next, npc);
   if (choice === 'take') {
     const cls = SHIP_CLASSES[npc.classId];
     next = {
@@ -180,7 +183,8 @@ export function applyPrize(
 /** She went down (spec §8.2): no plunder; recorded in the stats. */
 export function applyEnemySunk(voyage: Voyage, state: CombatState, npc: NpcShip): Voyage {
   const next = afterFight(voyage, state.ships[0].condition);
-  return removeNpc({ ...next, stats: record(next.stats, npc.nation, 'sunk') }, npc.id);
+  const counted = { ...next, stats: record(next.stats, npc.nation, 'sunk') };
+  return removeNpc(addBounty(counted, npc), npc.id);
 }
 
 /** She got away (spec §8.2): back on the map with her damage, ignoring the player for 48 h. */
